@@ -176,6 +176,7 @@ jobs:
       - name: Render the test project under Node
         timeout-minutes: 20
         run: |
+          set -o pipefail
           ls -l "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/build/web/lmms.wasm"
           timeout 240 node tests/render.mjs "$RUNNER_TEMP/build/web/lmms.js" tests/tripleoscillator.mmp "$RUNNER_TEMP/tripleoscillator.wav" 6.0 | tee "$RUNNER_TEMP/render.txt"
           {
