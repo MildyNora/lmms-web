@@ -1,0 +1,123 @@
+lmms-web: Build LMMS with Emscripten for the web: LMMS_BUILD_WEB, plugins as static libraries
+with their entry point named after them, no install rules or tests, the web module's
+own target (LMMS_WEB_DIR) added after the plugins, no remote plugins (QProcess).
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d2a957e..f4aea49 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -76,6 +76,16 @@ ENDIF()
+ INCLUDE(VersionInfo)
+ INCLUDE(DetectMachine)
+ 
++# The web build (Emscripten, WebAssembly): one module with every plugin linked in
++# statically and found through a compiled-in registry instead of being loaded as a
++# shared library, rendering on one thread. LMMS_WEB_DIR names the directory with
++# the module's own target (the headless entry point), added after the plugins.
++IF(EMSCRIPTEN)
++	SET(LMMS_BUILD_WEB TRUE)
++	ADD_COMPILE_DEFINITIONS(LMMS_BUILD_WEB LMMS_STATIC_PLUGINS LMMS_SINGLE_THREADED)
++ENDIF()
++SET(LMMS_WEB_DIR "" CACHE PATH "Directory of the web build's module target (CMakeLists.txt)")
++
+ OPTION(WANT_ALSA	"Include ALSA (Advanced Linux Sound Architecture) support" ON)
+ OPTION(WANT_OSS 	"Include Open Sound System support" ON)
+ OPTION(WANT_CALF	"Include CALF LADSPA plugins" ON)
+@@ -806,7 +816,7 @@ endif()
+ # we somehow have to make LMMS-binary depend on MOC-files
+ ADD_FILE_DEPENDENCIES("${CMAKE_BINARY_DIR}/lmmsconfig.h")
+ 
+-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND NOT WIN32)
++if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND NOT WIN32 AND NOT LMMS_BUILD_WEB)
+ 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -DPIC")
+ 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -DPIC")
+ elseif(MSVC)
+@@ -864,11 +874,20 @@ include(CompileCache)
+ ADD_SUBDIRECTORY(cmake)
+ ADD_SUBDIRECTORY(src)
+ ADD_SUBDIRECTORY(plugins)
+-ADD_SUBDIRECTORY(tests)
++IF(LMMS_BUILD_WEB)
++	# The web module links the core and the plugins built above
++	IF(LMMS_WEB_DIR)
++		ADD_SUBDIRECTORY("${LMMS_WEB_DIR}" "${CMAKE_BINARY_DIR}/web")
++	ENDIF()
++ELSE()
++	ADD_SUBDIRECTORY(tests)
++ENDIF()
+ ADD_SUBDIRECTORY(data)
+ 
+ # install tasks
+-ADD_SUBDIRECTORY(cmake/install)
++IF(NOT LMMS_BUILD_WEB)
++	ADD_SUBDIRECTORY(cmake/install)
++ENDIF()
+ 
+ # install headers
+ 
+diff --git a/cmake/modules/BuildPlugin.cmake b/cmake/modules/BuildPlugin.cmake
+index 9f6a89a..035cc95 100644
+--- a/cmake/modules/BuildPlugin.cmake
++++ b/cmake/modules/BuildPlugin.cmake
+@@ -49,14 +49,29 @@ MACRO(BUILD_PLUGIN PLUGIN_NAME)
+ 		SET(PLUGIN_LINK "MODULE")
+ 	ENDIF()
+ 
++	IF(LMMS_BUILD_WEB)
++		# The web build links every plugin into its module: a static library whose
++		# entry point is named after the plugin, so the compiled-in registry can
++		# tell them apart (see PluginFactory).
++		SET(PLUGIN_LINK "STATIC")
++	ENDIF()
++
+ 	ADD_LIBRARY(${PLUGIN_NAME} ${PLUGIN_LINK} ${PLUGIN_SOURCES} ${plugin_MOC_out} ${RCC_OUT})
+ 
+-	target_link_libraries("${PLUGIN_NAME}" lmms Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Xml)
++	IF(LMMS_BUILD_WEB)
++		target_compile_definitions("${PLUGIN_NAME}" PRIVATE "lmms_plugin_main=${PLUGIN_NAME}_lmms_plugin_main")
++		# The core's headers and usage requirements, not its objects: the module links those once
++		target_link_libraries("${PLUGIN_NAME}" "$<COMPILE_ONLY:lmmsobjs>" Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Xml)
++	ELSE()
++		target_link_libraries("${PLUGIN_NAME}" lmms Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Xml)
++	ENDIF()
+ 
+-	INSTALL(TARGETS ${PLUGIN_NAME}
+-		LIBRARY DESTINATION "${PLUGIN_DIR}"
+-		RUNTIME DESTINATION "${PLUGIN_DIR}"
+-	)
++	IF(NOT LMMS_BUILD_WEB)
++		INSTALL(TARGETS ${PLUGIN_NAME}
++			LIBRARY DESTINATION "${PLUGIN_DIR}"
++			RUNTIME DESTINATION "${PLUGIN_DIR}"
++		)
++	ENDIF()
+ 
+ 	IF(LMMS_BUILD_APPLE)
+ 		IF ("${PLUGIN_LINK}" STREQUAL "SHARED")
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 6e248e9..db5b133 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -35,6 +35,11 @@ ADD_SUBDIRECTORY(tracks)
+ 
+ LIST(APPEND LMMS_SRCS ${LMMS_COMMON_SRCS})
+ 
++IF(LMMS_BUILD_WEB)
++	# Remote plugins run in a separate process (QProcess), which a web page can't start
++	LIST(REMOVE_ITEM LMMS_SRCS core/RemotePlugin.cpp)
++ENDIF()
++
+ IF(WANT_QT6)
+ 	QT6_WRAP_UI(LMMS_UI_OUT ${LMMS_UIS})
+ ELSE()
+@@ -95,7 +100,7 @@ IF(SUIL_INCLUDE_DIRS)
+ ENDIF()
+ 
+ # Use libraries in non-standard directories (e.g., another version of Qt)
+-IF(LMMS_BUILD_LINUX)
++IF(LMMS_BUILD_LINUX AND NOT LMMS_BUILD_WEB)
+ 	LINK_LIBRARIES(-Wl,--enable-new-dtags)
+ 	SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+ ENDIF()

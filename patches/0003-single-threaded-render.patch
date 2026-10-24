@@ -1,0 +1,104 @@
+lmms-web: Rendering without threads (LMMS_SINGLE_THREADED): the audio engine with zero worker
+threads, the project renderer's work run inline instead of on its QThread, the dummy
+audio device without its thread, wavetables generated serially.
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/include/AudioDummy.h b/include/AudioDummy.h
+index 9adbf4e..703103f 100644
+--- a/include/AudioDummy.h
++++ b/include/AudioDummy.h
+@@ -80,12 +80,17 @@ public:
+ private:
+ 	void startProcessingImpl() override
+ 	{
++#ifndef LMMS_SINGLE_THREADED
++		// Without threads nothing plays in real time; renders pull periods themselves
+ 		start();
++#endif
+ 	}
+ 
+ 	void stopProcessingImpl() override
+ 	{
++#ifndef LMMS_SINGLE_THREADED
+ 		stopProcessingThread( this );
++#endif
+ 	}
+ 
+ 	void run() override
+diff --git a/src/core/AudioEngine.cpp b/src/core/AudioEngine.cpp
+index 64a4251..18eccde 100644
+--- a/src/core/AudioEngine.cpp
++++ b/src/core/AudioEngine.cpp
+@@ -82,7 +82,12 @@ AudioEngine::AudioEngine(bool renderOnly)
+ 	, m_outputBufferWrite(nullptr)
+ 	, m_outputBufferReadIndex(0)
+ 	, m_workers()
++#ifdef LMMS_SINGLE_THREADED
++	// No worker threads: every job runs inline, on the thread that renders
++	, m_numWorkers(0)
++#else
+ 	, m_numWorkers(QThread::idealThreadCount() - 1)
++#endif
+ 	, m_newPlayHandles(PlayHandle::MaxNumber)
+ 	, m_masterGain(1.0f)
+ 	, m_audioDev(nullptr)
+diff --git a/src/core/Oscillator.cpp b/src/core/Oscillator.cpp
+index 1ea97c4..a306b0e 100644
+--- a/src/core/Oscillator.cpp
++++ b/src/core/Oscillator.cpp
+@@ -302,7 +302,7 @@ void Oscillator::generateWaveTables()
+ // TODO: Mingw compilers currently do not support std::thread. There are some 3rd-party workarounds available,
+ // but since threading is not essential in this case, it is easier and more reliable to simply generate
+ // the wavetables serially. Remove the the check and #else branch once std::thread is well supported.
+-#if !defined(__MINGW32__) && !defined(__MINGW64__)
++#if !defined(__MINGW32__) && !defined(__MINGW64__) && !defined(LMMS_SINGLE_THREADED)
+ 	std::thread sawThread(simpleGen, WaveShape::Saw, generateSawWaveTable);
+ 	std::thread squareThread(simpleGen, WaveShape::Square, generateSquareWaveTable);
+ 	std::thread triangleThread(simpleGen, WaveShape::Triangle, generateTriangleWaveTable);
+diff --git a/src/core/ProjectRenderer.cpp b/src/core/ProjectRenderer.cpp
+index a5aa500..b9a181a 100644
+--- a/src/core/ProjectRenderer.cpp
++++ b/src/core/ProjectRenderer.cpp
+@@ -141,11 +141,16 @@ void ProjectRenderer::startProcessing()
+ 		// make slots connected to sampleRateChanged()-signals being called immediately.
+ 		Engine::audioEngine()->setAudioDevice(m_fileDev, false);
+ 
++#ifdef LMMS_SINGLE_THREADED
++		// No threads: render right here; the file is written when this returns
++		run();
++#else
+ 		start(
+ #ifndef LMMS_BUILD_WIN32
+ 			QThread::HighPriority
+ #endif
+ 						);
++#endif
+ 
+ 	}
+ }
+@@ -199,7 +204,9 @@ void ProjectRenderer::run()
+ void ProjectRenderer::abortProcessing()
+ {
+ 	m_abort = true;
++#ifndef LMMS_SINGLE_THREADED
+ 	wait();
++#endif
+ }
+ 
+ 
+diff --git a/src/core/RenderManager.cpp b/src/core/RenderManager.cpp
+index 1d8cd3f..2a8224c 100644
+--- a/src/core/RenderManager.cpp
++++ b/src/core/RenderManager.cpp
+@@ -148,6 +148,10 @@ void RenderManager::render(QString outputPath)
+ 				this, SLOT(renderNextTrack()));
+ 
+ 		m_activeRenderer->startProcessing();
++#ifdef LMMS_SINGLE_THREADED
++		// The renderer ran inline (no thread to emit finished()), so it is done
++		renderNextTrack();
++#endif
+ 	}
+ 	else
+ 	{

@@ -1,0 +1,185 @@
+lmms-web: Plugins and LADSPA libraries linked in (LMMS_STATIC_PLUGINS): PluginFactory and
+LadspaManager read a compiled-in registry the program defines instead of loading
+shared libraries with QLibrary.
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/include/LadspaManager.h b/include/LadspaManager.h
+index 0d2defa..405c8f8 100644
+--- a/include/LadspaManager.h
++++ b/include/LadspaManager.h
+@@ -81,6 +81,20 @@ struct LadspaManagerDescription
+ 	uint16_t outputChannels;
+ };
+ 
++#ifdef LMMS_STATIC_PLUGINS
++//! A LADSPA library linked into the program (the web build): its file name as it
++//! would be loaded elsewhere (e.g. "cmt.so") and its ladspa_descriptor function.
++struct StaticLadspaLibrary
++{
++	const char* fileName;
++	LADSPA_Descriptor_Function descriptorFunction;
++};
++
++//! The LADSPA libraries linked into the program, ending with an entry whose file
++//! name is null. Defined by the program (generated with the list it links).
++extern const StaticLadspaLibrary staticLadspaLibraries[];
++#endif
++
+ class LMMS_EXPORT LadspaManager
+ {
+ public:
+diff --git a/include/PluginFactory.h b/include/PluginFactory.h
+index 21afaef..bf814ee 100644
+--- a/include/PluginFactory.h
++++ b/include/PluginFactory.h
+@@ -41,6 +41,21 @@ class QLibrary;  // IWYU pragma: keep
+ namespace lmms
+ {
+ 
++#ifdef LMMS_STATIC_PLUGINS
++//! A plugin linked into the program (the web build): its name (the library's name
++//! elsewhere), its descriptor and its entry point (lmms_plugin_main elsewhere).
++struct StaticPlugin
++{
++	const char* name;
++	Plugin::Descriptor* descriptor;
++	Plugin* (*instantiate)(Model*, void*);
++};
++
++//! The plugins linked into the program, ending with an entry whose name is null.
++//! Defined by the program (generated with the list of plugins it links).
++extern const StaticPlugin staticPlugins[];
++#endif
++
+ class LMMS_EXPORT PluginFactory
+ {
+ public:
+@@ -50,8 +65,14 @@ public:
+ 		QFileInfo file;
+ 		std::shared_ptr<QLibrary> library = nullptr;
+ 		Plugin::Descriptor* descriptor = nullptr;
++#ifdef LMMS_STATIC_PLUGINS
++		Plugin* (*instantiate)(Model*, void*) = nullptr;
++
++		bool isNull() const { return !instantiate; }
++#else
+ 
+ 		bool isNull() const {return ! library;}
++#endif
+ 	};
+ 	using PluginInfoList = QList<PluginInfo>;
+ 	using DescriptorMap = QMultiMap<Plugin::Type, Plugin::Descriptor*>;
+diff --git a/src/core/LadspaManager.cpp b/src/core/LadspaManager.cpp
+index db37fca..b7f1370 100644
+--- a/src/core/LadspaManager.cpp
++++ b/src/core/LadspaManager.cpp
+@@ -27,10 +27,13 @@
+ #include <QCoreApplication>
+ #include <QDebug>
+ #include <QDir>
++#ifndef LMMS_STATIC_PLUGINS
+ #include <QLibrary>
++#endif
+ #include <QList>
+ #include <QRegularExpression>
+ 
++#include <algorithm>
+ #include <cmath>
+ 
+ #include "ConfigManager.h"
+@@ -64,6 +67,16 @@ LadspaManager::LadspaManager()
+ 	ladspaDirectories.push_back( "/Library/Audio/Plug-Ins/LADSPA" );
+ #endif
+ 
++#ifdef LMMS_STATIC_PLUGINS
++	// The LADSPA libraries are linked into the program: take them from its registry
++	for (const StaticLadspaLibrary* library = staticLadspaLibraries; library->fileName; ++library)
++	{
++		const auto fileName = QString::fromUtf8(library->fileName);
++		const bool exclude = std::any_of(excludePatterns.begin(), excludePatterns.end(),
++			[&fileName](const QRegularExpression& pattern) { return pattern.match(fileName).hasMatch(); });
++		if (!exclude) { addPlugins(library->descriptorFunction, fileName); }
++	}
++#else
+ 	for (const auto& ladspaDirectory : ladspaDirectories)
+ 	{
+ 		// Skip empty entries as QDir will interpret it as the working directory
+@@ -108,6 +121,7 @@ LadspaManager::LadspaManager()
+ 			}
+ 		}
+ 	}
++#endif
+ 	
+ 	l_ladspa_key_t keys = m_ladspaManagerMap.keys();
+ 	for (const auto& key : keys)
+diff --git a/src/core/Plugin.cpp b/src/core/Plugin.cpp
+index fe34c5c..6488ff1 100644
+--- a/src/core/Plugin.cpp
++++ b/src/core/Plugin.cpp
+@@ -25,7 +25,9 @@
+ #include "Plugin.h"
+ 
+ #include <QDomElement>
++#ifndef LMMS_STATIC_PLUGINS
+ #include <QLibrary>
++#endif
+ #include <QMessageBox>
+ 
+ #include "embed.h"
+@@ -225,7 +227,11 @@ Plugin * Plugin::instantiate(const QString& pluginName, Model * parent,
+ 	}
+ 	else
+ 	{
++#ifdef LMMS_STATIC_PLUGINS
++		InstantiationHook instantiationHook = pi.instantiate;
++#else
+ 		auto instantiationHook = reinterpret_cast<InstantiationHook>(pi.library->resolve("lmms_plugin_main"));
++#endif
+ 		if (instantiationHook)
+ 		{
+ 			inst = instantiationHook(parent, data);
+diff --git a/src/core/PluginFactory.cpp b/src/core/PluginFactory.cpp
+index b95a9be..bf30500 100644
+--- a/src/core/PluginFactory.cpp
++++ b/src/core/PluginFactory.cpp
+@@ -27,7 +27,9 @@
+ #include <QCoreApplication>
+ #include <QDebug>
+ #include <QDir>
++#ifndef LMMS_STATIC_PLUGINS
+ #include <QLibrary>
++#endif
+ #include <QRegularExpression>
+ #include <memory>
+ #include "lmmsconfig.h"
+@@ -147,6 +149,21 @@ void PluginFactory::discoverPlugins()
+ 	PluginInfoList pluginInfos;
+ 	m_pluginByExt.clear();
+ 
++#ifdef LMMS_STATIC_PLUGINS
++	// The plugins are linked into the program: take them from its registry
++	for (const StaticPlugin* plugin = staticPlugins; plugin->name; ++plugin)
++	{
++		Plugin::Descriptor* pluginDescriptor = plugin->descriptor;
++		const auto file = QFileInfo(QString("lib%1.so").arg(plugin->name));
++
++		if(pluginDescriptor)
++		{
++			PluginInfo info;
++			info.file = file;
++			info.instantiate = plugin->instantiate;
++			info.descriptor = pluginDescriptor;
++			pluginInfos << info;
++#else
+ 	QSet<QFileInfo> files;
+ 	for (const QString& searchPath : QDir::searchPaths("plugins"))
+ 	{
+@@ -198,6 +215,7 @@ void PluginFactory::discoverPlugins()
+ 			info.library = library;
+ 			info.descriptor = pluginDescriptor;
+ 			pluginInfos << info;
++#endif
+ 
+ 			auto addSupportedFileTypes =
+ 				[this](QString supportedFileTypes,
