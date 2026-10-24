@@ -5,7 +5,7 @@ own target (LMMS_WEB_DIR) added after the plugins, no remote plugins (QProcess).
 Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index d2a957e..f4aea49 100644
+index d2a957e..a0ccfdf 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -76,6 +76,16 @@ ENDIF()
@@ -25,7 +25,18 @@ index d2a957e..f4aea49 100644
  OPTION(WANT_ALSA	"Include ALSA (Advanced Linux Sound Architecture) support" ON)
  OPTION(WANT_OSS 	"Include Open Sound System support" ON)
  OPTION(WANT_CALF	"Include CALF LADSPA plugins" ON)
-@@ -806,7 +816,7 @@ endif()
+@@ -767,6 +777,10 @@ FILE(REMOVE include/lmmsconfig.h)
+ 
+ FILE(GLOB LMMS_INCLUDES "${CMAKE_SOURCE_DIR}/include/*.h")
+ LIST(SORT LMMS_INCLUDES)
++IF(LMMS_BUILD_WEB)
++	# Not built for the web (QProcess), so not for moc either
++	LIST(REMOVE_ITEM LMMS_INCLUDES "${CMAKE_SOURCE_DIR}/include/RemotePlugin.h")
++ENDIF()
+ 
+ # Get list of all committers from git history, ordered by number of commits.
+ # The CONTRIBUTORS file is used by AboutDialog. This information can be provided
+@@ -806,7 +820,7 @@ endif()
  # we somehow have to make LMMS-binary depend on MOC-files
  ADD_FILE_DEPENDENCIES("${CMAKE_BINARY_DIR}/lmmsconfig.h")
  
@@ -34,7 +45,7 @@ index d2a957e..f4aea49 100644
  	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -DPIC")
  	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -DPIC")
  elseif(MSVC)
-@@ -864,11 +874,20 @@ include(CompileCache)
+@@ -864,11 +878,20 @@ include(CompileCache)
  ADD_SUBDIRECTORY(cmake)
  ADD_SUBDIRECTORY(src)
  ADD_SUBDIRECTORY(plugins)

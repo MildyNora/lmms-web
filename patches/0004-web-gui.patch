@@ -1,0 +1,59 @@
+lmms-web: The GUI code compiled into the web build: what a web page can't do (start a file
+manager with QProcess) does nothing there.
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/src/gui/FileRevealer.cpp b/src/gui/FileRevealer.cpp
+index 518aafe..552a8e2 100644
+--- a/src/gui/FileRevealer.cpp
++++ b/src/gui/FileRevealer.cpp
+@@ -27,7 +27,9 @@
+ #include <QDesktopServices>
+ #include <QDebug>
+ #include <QDir>
++#ifndef LMMS_BUILD_WEB
+ #include <QProcess>
++#endif
+ #include <QString>
+ #include <QRegularExpression>
+ #include <QUrl>
+@@ -38,6 +40,32 @@
+ namespace lmms::gui {
+ bool FileRevealer::s_canSelect = false;
+ 
++#ifdef LMMS_BUILD_WEB
++// A web page can't start a file manager (no QProcess): revealing a file does nothing
++
++const QString& FileRevealer::getDefaultFileManager()
++{
++	static const auto none = QString{};
++	return none;
++}
++
++void FileRevealer::openDir(const QFileInfo) {}
++
++const QStringList& FileRevealer::getSelectCommand()
++{
++	static const auto none = QStringList{};
++	return none;
++}
++
++void FileRevealer::reveal(const QFileInfo) {}
++
++bool FileRevealer::supportsArg(const QString&, const QString&)
++{
++	return false;
++}
++
++#else
++
+ const QString& FileRevealer::getDefaultFileManager()
+ {
+ 	static std::optional<QString> fileManagerCache;
+@@ -180,4 +208,6 @@ bool FileRevealer::supportsArg(const QString& command, const QString& arg)
+ 	return output.contains(arg);
+ }
+ 
++#endif // LMMS_BUILD_WEB
++
+ } // namespace lmms::gui

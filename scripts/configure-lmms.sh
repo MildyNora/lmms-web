@@ -27,7 +27,8 @@ OFF=(ALSA OSS JACK WEAKJACK PULSEAUDIO PORTAUDIO SNDIO SOUNDIO SDL CARLA LV2 SUI
 WANTS=()
 for want in "${OFF[@]}"; do WANTS+=("-DWANT_$want=OFF"); done
 
-"$QT_WASM/bin/qt-cmake" -S "$SRC" -B "$BUILD" -G Ninja \
+# (qt-cmake comes out of Qt's archives without its executable bit)
+sh "$QT_WASM/bin/qt-cmake" -S "$SRC" -B "$BUILD" -G Ninja \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DQT_HOST_PATH="$QT_HOST" \
 	-DQT_HOST_PATH_CMAKE_DIR="$QT_HOST/lib/cmake" \
