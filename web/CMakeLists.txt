@@ -79,7 +79,7 @@ target_link_libraries(lmms_web PRIVATE
 	"-sEXPORT_ES6=1"
 	"-sEXPORT_NAME=createLmms"
 	"-sENVIRONMENT=web,worker,node"
-	"-sINVOKE_MAIN=0"
+	"-sINVOKE_RUN=0"
 	"-sEXIT_RUNTIME=0"
 	"-sFORCE_FILESYSTEM=1"
 	"-sALLOW_MEMORY_GROWTH=1"
