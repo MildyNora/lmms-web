@@ -75,6 +75,8 @@ target_link_options(lmms_web PRIVATE
 set(LMMS_WEB_EXPORTED_FUNCTIONS _main _malloc _free _lmms_init _lmms_render _lmms_version)
 list(JOIN LMMS_WEB_EXPORTED_FUNCTIONS "," LMMS_WEB_EXPORTED_FUNCTIONS)
 target_link_libraries(lmms_web PRIVATE
+	# Qt for WebAssembly's core uses embind (emscripten::val); qt_add_executable would add it
+	"-lembind"
 	"-sMODULARIZE=1"
 	"-sEXPORT_ES6=1"
 	"-sEXPORT_NAME=createLmms"
