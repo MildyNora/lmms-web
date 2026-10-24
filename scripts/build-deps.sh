@@ -65,6 +65,12 @@ fetch https://www.fftw.org/fftw-3.3.10.tar.gz \
 	56c932549852cddcfafdab3820b0200c7742675be92179e59e6215b340e26467
 (
 	cd "$WORK/fftw-3.3.10"
+	# WebAssembly has no cycle counter, yet configure's check of kernel/cycle.h finds one
+	# for Emscripten, and FFTW's measuring planner then never finishes (FFTW_MEASURE, which
+	# LMMS asks for). Without one FFTW plans by its estimates, as on any platform lacking a
+	# counter: FFTW_MEASURE acts as FFTW_ESTIMATE.
+	sed -i 's|^#  include "cycle.h"$|&\n#  ifdef __EMSCRIPTEN__\n#    undef HAVE_TICK_COUNTER\n#  endif|' kernel/timer.c
+	grep -q "undef HAVE_TICK_COUNTER" kernel/timer.c
 	emconfigure ./configure \
 		--prefix="$PREFIX" \
 		--enable-float \
