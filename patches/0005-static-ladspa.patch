@@ -1,0 +1,178 @@
+lmms-web: The LADSPA libraries LMMS bundles (CMT, CAPS, TAP, SWH, Calf) as static libraries in
+the web build, each with its ladspa_descriptor named after it and listed for the
+module's registry (LADSPA_LIBRARIES_BUILT); no -shared, -fPIC or install rules there.
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/plugins/LadspaEffect/CMakeLists.txt b/plugins/LadspaEffect/CMakeLists.txt
+index cb5950e..81167e6 100644
+--- a/plugins/LadspaEffect/CMakeLists.txt
++++ b/plugins/LadspaEffect/CMakeLists.txt
+@@ -8,6 +8,23 @@ SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/ladspa")
+ set(CMAKE_C_VISIBILITY_PRESET default)
+ set(CMAKE_CXX_VISIBILITY_PRESET default)
+ 
++# The LADSPA libraries are shared libraries LadspaManager loads, except in the web
++# build: there each is a static library linked into the module, its ladspa_descriptor
++# named after it (<library>_ladspa_descriptor) and listed in LADSPA_LIBRARIES_BUILT for
++# the module's registry.
++IF(LMMS_BUILD_WEB)
++	SET(LADSPA_LIBRARY_TYPE STATIC)
++ELSE()
++	SET(LADSPA_LIBRARY_TYPE MODULE)
++ENDIF()
++
++FUNCTION(LADSPA_LIBRARY_FOR_WEB _target)
++	IF(LMMS_BUILD_WEB)
++		target_compile_definitions("${_target}" PRIVATE "ladspa_descriptor=${_target}_ladspa_descriptor")
++		set_property(GLOBAL APPEND PROPERTY LADSPA_LIBRARIES_BUILT "${_target}")
++	ENDIF()
++ENDFUNCTION()
++
+ IF(LMMS_HAVE_CAPS)
+ ADD_SUBDIRECTORY(caps)
+ ENDIF()
+diff --git a/plugins/LadspaEffect/calf/CMakeLists.txt b/plugins/LadspaEffect/calf/CMakeLists.txt
+index 1b8d8f6..2be7d52 100644
+--- a/plugins/LadspaEffect/calf/CMakeLists.txt
++++ b/plugins/LadspaEffect/calf/CMakeLists.txt
+@@ -24,13 +24,16 @@ FOREACH(_item ${SOURCES})
+ 	ENDFOREACH()
+ ENDFOREACH()
+ 
+-ADD_LIBRARY(veal MODULE ${SOURCES})
++ADD_LIBRARY(veal ${LADSPA_LIBRARY_TYPE} ${SOURCES})
++LADSPA_LIBRARY_FOR_WEB(veal)
+ INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/include"
+                     "${CMAKE_BINARY_DIR}"
+                     "${CMAKE_CURRENT_BINARY_DIR}"
+                     "${CMAKE_CURRENT_SOURCE_DIR}/veal/src")
+ 		
+-INSTALL(TARGETS veal LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++IF(NOT LMMS_BUILD_WEB)
++	INSTALL(TARGETS veal LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++ENDIF()
+ SET_TARGET_PROPERTIES(veal PROPERTIES PREFIX "")
+ 
+ # Disable OSC messaging, it's not mingw compatible
+@@ -58,6 +61,6 @@ if(LMMS_BUILD_WIN32)
+ 		COMMAND_EXPAND_LISTS
+ 	)
+ endif()
+-IF(NOT LMMS_BUILD_APPLE AND NOT LMMS_BUILD_OPENBSD)
++IF(NOT LMMS_BUILD_APPLE AND NOT LMMS_BUILD_OPENBSD AND NOT LMMS_BUILD_WEB)
+ 	target_link_libraries(veal PRIVATE -shared)
+ ENDIF()
+diff --git a/plugins/LadspaEffect/caps/CMakeLists.txt b/plugins/LadspaEffect/caps/CMakeLists.txt
+index 379413a..0f7d1eb 100644
+--- a/plugins/LadspaEffect/caps/CMakeLists.txt
++++ b/plugins/LadspaEffect/caps/CMakeLists.txt
+@@ -3,8 +3,11 @@ set_directory_properties(PROPERTIES SYSTEM TRUE)
+ INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/include")
+ FILE(GLOB SOURCES *.cc)
+ LIST(SORT SOURCES)
+-ADD_LIBRARY(caps MODULE ${SOURCES})
+-INSTALL(TARGETS caps LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++ADD_LIBRARY(caps ${LADSPA_LIBRARY_TYPE} ${SOURCES})
++LADSPA_LIBRARY_FOR_WEB(caps)
++IF(NOT LMMS_BUILD_WEB)
++	INSTALL(TARGETS caps LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++ENDIF()
+ IF(LMMS_BUILD_WIN64)
+ ADD_DEFINITIONS(-DLMMS_BUILD_WIN64)
+ ENDIF(LMMS_BUILD_WIN64)
+diff --git a/plugins/LadspaEffect/cmt/CMakeLists.txt b/plugins/LadspaEffect/cmt/CMakeLists.txt
+index dbc3c9d..1ea8ca7 100644
+--- a/plugins/LadspaEffect/cmt/CMakeLists.txt
++++ b/plugins/LadspaEffect/cmt/CMakeLists.txt
+@@ -3,8 +3,11 @@ set_directory_properties(PROPERTIES SYSTEM TRUE)
+ INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/include")
+ FILE(GLOB_RECURSE SOURCES cmt/src/*.cpp)
+ LIST(SORT SOURCES)
+-ADD_LIBRARY(cmt MODULE ${SOURCES})
+-INSTALL(TARGETS cmt LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++ADD_LIBRARY(cmt ${LADSPA_LIBRARY_TYPE} ${SOURCES})
++LADSPA_LIBRARY_FOR_WEB(cmt)
++IF(NOT LMMS_BUILD_WEB)
++	INSTALL(TARGETS cmt LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++ENDIF()
+ 
+ SET_TARGET_PROPERTIES(cmt PROPERTIES PREFIX "")
+ 
+@@ -26,11 +29,11 @@ if(MSVC)
+ 	target_link_options(cmt PRIVATE "/EXPORT:ladspa_descriptor")
+ endif()
+ 
+-if(NOT LMMS_BUILD_WIN32)
++if(NOT LMMS_BUILD_WIN32 AND NOT LMMS_BUILD_WEB)
+ 	target_compile_options(cmt PRIVATE -fPIC)
+ endif()
+ 
+-IF(NOT LMMS_BUILD_APPLE AND NOT LMMS_BUILD_OPENBSD)
++IF(NOT LMMS_BUILD_APPLE AND NOT LMMS_BUILD_OPENBSD AND NOT LMMS_BUILD_WEB)
+ 	target_link_libraries(cmt PRIVATE -shared)
+ ENDIF()
+ 
+diff --git a/plugins/LadspaEffect/swh/CMakeLists.txt b/plugins/LadspaEffect/swh/CMakeLists.txt
+index 8358174..e91b0e4 100644
+--- a/plugins/LadspaEffect/swh/CMakeLists.txt
++++ b/plugins/LadspaEffect/swh/CMakeLists.txt
+@@ -15,7 +15,7 @@ endif()
+ FILE(WRITE ladspa/config.h "")
+ 
+ # Precompiler PIC Macro
+-IF(LMMS_BUILD_WIN32 OR LMMS_BUILD_CYGWIN)
++IF(LMMS_BUILD_WIN32 OR LMMS_BUILD_CYGWIN OR LMMS_BUILD_WEB)
+ 	SET(PIC_FLAGS "")
+ ELSE()
+ 	SET(PIC_FLAGS -fPIC -DPIC)
+@@ -48,7 +48,8 @@ FOREACH(_item ${XML_SOURCES})
+ 	)
+ 
+ 	# Add a library target for this C file, which depends on success of makestup.pl
+-	ADD_LIBRARY("${_plugin}" MODULE "${_out_file}")
++	ADD_LIBRARY("${_plugin}" ${LADSPA_LIBRARY_TYPE} "${_out_file}")
++	LADSPA_LIBRARY_FOR_WEB("${_plugin}")
+ 
+ 	if(MSVC)
+ 		target_link_options("${_plugin}" PRIVATE "/EXPORT:ladspa_descriptor")
+@@ -74,7 +75,9 @@ FOREACH(_item ${XML_SOURCES})
+ 
+ 	SET_TARGET_PROPERTIES("${_plugin}" PROPERTIES PREFIX "")
+ 	target_compile_options("${_plugin}" PRIVATE "${COMPILE_FLAGS}")
+-	INSTALL(TARGETS "${_plugin}" LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++	IF(NOT LMMS_BUILD_WEB)
++		INSTALL(TARGETS "${_plugin}" LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++	ENDIF()
+ ENDFOREACH()
+ 
+ ADD_DEFINITIONS(-DFFTW3)
+diff --git a/plugins/LadspaEffect/tap/CMakeLists.txt b/plugins/LadspaEffect/tap/CMakeLists.txt
+index 93b54ae..b5c2b50 100644
+--- a/plugins/LadspaEffect/tap/CMakeLists.txt
++++ b/plugins/LadspaEffect/tap/CMakeLists.txt
+@@ -10,7 +10,12 @@ else()
+ endif()
+ FOREACH(_item ${PLUGIN_SOURCES})
+ 	GET_FILENAME_COMPONENT(_plugin "${_item}" NAME_WE)
+-	ADD_LIBRARY("${_plugin}" MODULE "${_item}")
++	ADD_LIBRARY("${_plugin}" ${LADSPA_LIBRARY_TYPE} "${_item}")
++	LADSPA_LIBRARY_FOR_WEB("${_plugin}")
++	IF(LMMS_BUILD_WEB)
++		# Linked together, so each plugin's own init and fini functions need their own names
++		TARGET_COMPILE_DEFINITIONS("${_plugin}" PRIVATE "tap_init=${_plugin}_init" "tap_fini=${_plugin}_fini")
++	ENDIF()
+ 	if(MSVC)
+ 		target_link_options("${_plugin}" PRIVATE "/EXPORT:ladspa_descriptor")
+ 	endif()
+@@ -18,7 +23,9 @@ FOREACH(_item ${PLUGIN_SOURCES})
+ 	IF("${_plugin}" MATCHES "tap_pinknoise")
+ 		TARGET_COMPILE_DEFINITIONS("${_plugin}" PRIVATE TAP_DISABLE_SRAND=1)
+ 	ENDIF()
+-	INSTALL(TARGETS "${_plugin}" LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++	IF(NOT LMMS_BUILD_WEB)
++		INSTALL(TARGETS "${_plugin}" LIBRARY DESTINATION "${PLUGIN_DIR}/ladspa")
++	ENDIF()
+ 	SET_TARGET_PROPERTIES("${_plugin}" PROPERTIES PREFIX "")
+ 	if(LMMS_BUILD_WIN32)
+ 		add_custom_command(

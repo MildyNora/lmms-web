@@ -7,7 +7,21 @@
 get_property(LMMS_WEB_PLUGINS GLOBAL PROPERTY PLUGINS_BUILT)
 # Libraries other plugins use, built with BUILD_PLUGIN but without an entry point
 list(REMOVE_ITEM LMMS_WEB_PLUGINS carlabase vstbase ZynAddSubFxCore)
-set(LMMS_WEB_LADSPA_LIBRARIES "" CACHE STRING "LADSPA libraries linked into the module (file name=target)")
+# The LADSPA libraries linked in: those named here (as LADSPA files, without .so), out
+# of the ones LMMS's build defines (LADSPA_LIBRARIES_BUILT, see patches/0005); all of
+# them when empty. Only what is linked gets compiled.
+set(LMMS_WEB_LADSPA "" CACHE STRING "LADSPA libraries to link into the web module (empty: all)")
+get_property(LMMS_WEB_LADSPA_BUILT GLOBAL PROPERTY LADSPA_LIBRARIES_BUILT)
+if(LMMS_WEB_LADSPA)
+	string(REPLACE " " ";" LMMS_WEB_LADSPA_LIBRARIES "${LMMS_WEB_LADSPA}")
+	foreach(library IN LISTS LMMS_WEB_LADSPA_LIBRARIES)
+		if(NOT library IN_LIST LMMS_WEB_LADSPA_BUILT)
+			message(FATAL_ERROR "LADSPA library ${library} isn't built (built: ${LMMS_WEB_LADSPA_BUILT})")
+		endif()
+	endforeach()
+else()
+	set(LMMS_WEB_LADSPA_LIBRARIES ${LMMS_WEB_LADSPA_BUILT})
+endif()
 
 # The registry of plugins and LADSPA libraries linked in (see PluginFactory, LadspaManager)
 set(STATIC_PLUGIN_DECLARATIONS "")
@@ -21,15 +35,10 @@ foreach(plugin IN LISTS LMMS_WEB_PLUGINS)
 endforeach()
 set(STATIC_LADSPA_DECLARATIONS "")
 set(STATIC_LADSPA_ENTRIES "")
-set(LMMS_WEB_LADSPA_TARGETS "")
-foreach(entry IN LISTS LMMS_WEB_LADSPA_LIBRARIES)
-	string(REPLACE "=" ";" parts "${entry}")
-	list(GET parts 0 file)
-	list(GET parts 1 target)
+foreach(library IN LISTS LMMS_WEB_LADSPA_LIBRARIES)
 	string(APPEND STATIC_LADSPA_DECLARATIONS
-		"extern \"C\" const LADSPA_Descriptor* ${target}_ladspa_descriptor(unsigned long);\n")
-	string(APPEND STATIC_LADSPA_ENTRIES "\t{\"${file}\", &${target}_ladspa_descriptor},\n")
-	list(APPEND LMMS_WEB_LADSPA_TARGETS "${target}")
+		"extern \"C\" const LADSPA_Descriptor* ${library}_ladspa_descriptor(unsigned long);\n")
+	string(APPEND STATIC_LADSPA_ENTRIES "\t{\"${library}.so\", &${library}_ladspa_descriptor},\n")
 endforeach()
 configure_file(static_registry.cpp.in "${CMAKE_CURRENT_BINARY_DIR}/static_registry.cpp" @ONLY)
 
@@ -45,7 +54,7 @@ target_include_directories(lmms_web PRIVATE
 target_compile_features(lmms_web PRIVATE cxx_std_20)
 # The core's objects, with the libraries they need
 target_static_libraries(lmms_web PRIVATE lmmsobjs)
-target_link_libraries(lmms_web PRIVATE ${LMMS_WEB_PLUGINS} ${LMMS_WEB_LADSPA_TARGETS} ${QT_LIBRARIES})
+target_link_libraries(lmms_web PRIVATE ${LMMS_WEB_PLUGINS} ${LMMS_WEB_LADSPA_LIBRARIES} ${QT_LIBRARIES})
 
 # lmms.js (the loader, an ES module) and lmms.wasm, in <build>/web (LMMS's own lmms
 # target, not built here, would also be lmms.js at the top of the build directory)

@@ -1,0 +1,33 @@
+lmms-web: wasm32 is a 32-bit target with a 64-bit frame count (f_cnt_t): the buffer views' size
+checks, which assume no padding between a pointer and a frame count, don't hold there.
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/include/AudioBufferView.h b/include/AudioBufferView.h
+index 0b10cda..f3106fe 100644
+--- a/include/AudioBufferView.h
++++ b/include/AudioBufferView.h
+@@ -460,8 +460,11 @@ public:
+ };
+ 
+ // Check that the std::span-like space optimization works
++// (not on wasm32, where the 64-bit frame count's alignment pads both views to 16 bytes)
++#ifndef LMMS_BUILD_WEB
+ static_assert(sizeof(InterleavedBufferView<float>) > sizeof(InterleavedBufferView<float, 2>));
+ static_assert(sizeof(InterleavedBufferView<float, 2>) == sizeof(void*) + sizeof(f_cnt_t));
++#endif
+ 
+ // Deduction guides
+ InterleavedBufferView(const SampleFrame*, f_cnt_t) -> InterleavedBufferView<const float, 2>;
+@@ -567,8 +570,11 @@ public:
+ };
+ 
+ // Check that the std::span-like space optimization works
++// (not on wasm32, where the 64-bit frame count's alignment pads both views to 16 bytes)
++#ifndef LMMS_BUILD_WEB
+ static_assert(sizeof(PlanarBufferView<float>) > sizeof(PlanarBufferView<float, 2>));
+ static_assert(sizeof(PlanarBufferView<float, 2>) == sizeof(void**) + sizeof(f_cnt_t));
++#endif
+ 
+ 
+ //! Concept for any audio buffer view, interleaved or planar

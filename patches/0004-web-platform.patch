@@ -1,9 +1,53 @@
 lmms-web: What a web page can't do is left out of the web build: starting other programs
 (QProcess, for the GUI's "show in file manager") and sharing memory with them (the
-song position shared with VST plugins).
+song position shared with VST plugins; shared memory fails as when the system refuses).
 
 Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
 
+diff --git a/src/common/SharedMemory.cpp b/src/common/SharedMemory.cpp
+index 5952b0d..b9a0f5c 100644
+--- a/src/common/SharedMemory.cpp
++++ b/src/common/SharedMemory.cpp
+@@ -35,7 +35,9 @@
+ #	include <unistd.h>
+ #endif
+ 
+-#if _POSIX_SHARED_MEMORY_OBJECTS > 0 || defined(LMMS_BUILD_APPLE)
++#if defined(LMMS_BUILD_WEB)
++#	include <cerrno>
++#elif _POSIX_SHARED_MEMORY_OBJECTS > 0 || defined(LMMS_BUILD_APPLE)
+ #	include <sys/mman.h>
+ #	include <sys/stat.h>
+ #	include <fcntl.h>
+@@ -59,7 +61,27 @@ struct Header
+ 
+ } // namespace
+ 
+-#if _POSIX_SHARED_MEMORY_OBJECTS > 0 || defined(LMMS_BUILD_APPLE)
++#if defined(LMMS_BUILD_WEB)
++
++//! A web page has no other processes to share memory with: creating or opening shared
++//! memory fails, as it does elsewhere when the system refuses
++class SharedMemoryImpl
++{
++public:
++	SharedMemoryImpl(const std::string&, bool, bool) { unavailable(); }
++	SharedMemoryImpl(const std::string&, std::size_t, bool, bool) { unavailable(); }
++
++	auto get() const noexcept -> void* { return nullptr; }
++	auto arraySize() const noexcept -> std::size_t { return 0; }
++
++private:
++	[[noreturn]] static void unavailable()
++	{
++		throw std::system_error{ENOSYS, std::generic_category(), "SharedMemoryImpl: no shared memory on the web"};
++	}
++};
++
++#elif _POSIX_SHARED_MEMORY_OBJECTS > 0 || defined(LMMS_BUILD_APPLE)
+ 
+ namespace {
+ 
 diff --git a/src/core/VstSyncController.cpp b/src/core/VstSyncController.cpp
 index 715c630..30f1522 100644
 --- a/src/core/VstSyncController.cpp

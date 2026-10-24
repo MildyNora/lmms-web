@@ -5,10 +5,10 @@ own target (LMMS_WEB_DIR) added after the plugins, no remote plugins (QProcess).
 Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index d2a957e..a0ccfdf 100644
+index d2a957e..1b46133 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -76,6 +76,16 @@ ENDIF()
+@@ -76,6 +76,19 @@ ENDIF()
  INCLUDE(VersionInfo)
  INCLUDE(DetectMachine)
  
@@ -19,13 +19,16 @@ index d2a957e..a0ccfdf 100644
 +IF(EMSCRIPTEN)
 +	SET(LMMS_BUILD_WEB TRUE)
 +	ADD_COMPILE_DEFINITIONS(LMMS_BUILD_WEB LMMS_STATIC_PLUGINS LMMS_SINGLE_THREADED)
++	# wasm32's size_t is 32-bit and LMMS's frame count (f_cnt_t) 64-bit: a frame count
++	# put into a std::span's size narrows, which clang treats as an error by default
++	ADD_COMPILE_OPTIONS("$<$<COMPILE_LANGUAGE:CXX>:-Wno-c++11-narrowing>")
 +ENDIF()
 +SET(LMMS_WEB_DIR "" CACHE PATH "Directory of the web build's module target (CMakeLists.txt)")
 +
  OPTION(WANT_ALSA	"Include ALSA (Advanced Linux Sound Architecture) support" ON)
  OPTION(WANT_OSS 	"Include Open Sound System support" ON)
  OPTION(WANT_CALF	"Include CALF LADSPA plugins" ON)
-@@ -767,6 +777,10 @@ FILE(REMOVE include/lmmsconfig.h)
+@@ -767,6 +780,10 @@ FILE(REMOVE include/lmmsconfig.h)
  
  FILE(GLOB LMMS_INCLUDES "${CMAKE_SOURCE_DIR}/include/*.h")
  LIST(SORT LMMS_INCLUDES)
@@ -36,7 +39,7 @@ index d2a957e..a0ccfdf 100644
  
  # Get list of all committers from git history, ordered by number of commits.
  # The CONTRIBUTORS file is used by AboutDialog. This information can be provided
-@@ -806,7 +820,7 @@ endif()
+@@ -806,7 +823,7 @@ endif()
  # we somehow have to make LMMS-binary depend on MOC-files
  ADD_FILE_DEPENDENCIES("${CMAKE_BINARY_DIR}/lmmsconfig.h")
  
@@ -45,7 +48,7 @@ index d2a957e..a0ccfdf 100644
  	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -DPIC")
  	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -DPIC")
  elseif(MSVC)
-@@ -864,11 +878,20 @@ include(CompileCache)
+@@ -864,11 +881,20 @@ include(CompileCache)
  ADD_SUBDIRECTORY(cmake)
  ADD_SUBDIRECTORY(src)
  ADD_SUBDIRECTORY(plugins)
