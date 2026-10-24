@@ -1,0 +1,204 @@
+# Builds LMMS for WebAssembly: Emscripten, Qt for WebAssembly, LMMS's libraries
+# cross-compiled, LMMS itself with patches/ applied, then renders a test project under
+# Node. The toolchain, Qt and the libraries are cached, so later runs go straight to
+# LMMS; ccache keeps LMMS's compiled objects between runs.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Qt 6.8 for WebAssembly is built with, and documents, Emscripten 3.1.56
+  EMSDK_VERSION: 3.1.56
+  QT_VERSION: 6.8.3
+  LMMS_TAG: v1.3.0-alpha.2
+  # Some of the libraries' CMake files predate CMake 3.5
+  CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Host tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends ninja-build ccache
+          pipx install "cmake==3.31.6"
+          pipx install "aqtinstall==3.3.0"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          {
+            echo "EM_CACHE=$RUNNER_TEMP/emcache"
+            echo "CCACHE_DIR=$RUNNER_TEMP/ccache"
+            echo "CCACHE_MAXSIZE=2G"
+            echo "CCACHE_COMPILERCHECK=string:emsdk-$EMSDK_VERSION"
+            echo "DEPS=$RUNNER_TEMP/deps"
+            echo "QT_HOST=$RUNNER_TEMP/qt/$QT_VERSION/gcc_64"
+            echo "QT_WASM=$RUNNER_TEMP/qt/$QT_VERSION/wasm_singlethread"
+          } >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Emscripten ${{ env.EMSDK_VERSION }}
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Restore Emscripten's library cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/emcache
+          key: emcache-${{ env.EMSDK_VERSION }}-${{ github.run_id }}
+          restore-keys: emcache-${{ env.EMSDK_VERSION }}-
+
+      - name: Versions
+        run: |
+          cmake --version | head -1
+          ninja --version
+          ccache --version | head -1
+          node --version
+          emcc --version | head -1
+
+      # ---------------------------------------------------------------- Qt
+      - name: Restore Qt
+        id: qt
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/qt
+          key: qt-${{ env.QT_VERSION }}-wasm_singlethread-linux_gcc_64-1
+
+      - name: Install Qt ${{ env.QT_VERSION }} (host tools and WebAssembly, single-threaded)
+        if: steps.qt.outputs.cache-hit != 'true'
+        run: |
+          aqt install-qt linux desktop "$QT_VERSION" linux_gcc_64 -O "$RUNNER_TEMP/qt" --archives qtbase qtsvg icu
+          aqt install-qt all_os wasm "$QT_VERSION" wasm_singlethread -O "$RUNNER_TEMP/qt" --archives qtbase qtsvg
+
+      - name: Save Qt
+        if: steps.qt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/qt
+          key: qt-${{ env.QT_VERSION }}-wasm_singlethread-linux_gcc_64-1
+
+      - name: Qt's features
+        run: |
+          ls "$QT_HOST/bin" "$QT_WASM/bin" | head -40
+          ls "$QT_HOST/libexec" | head -20 || true
+          for f in "$QT_WASM/include/QtCore/qtcore-config.h" "$QT_WASM/include/QtCore/qconfig.h"; do
+            echo "== ${f##*/}"; grep -E "FEATURE_(thread|library|process|sharedmemory|systemsemaphore|wasm|cxx|sse|simd)" "$f" || true
+          done
+          grep -rh "wasm_exceptions\|wasm-exceptions\|DISABLE_EXCEPTION" "$QT_WASM/lib/cmake/Qt6" | sort -u | head -20 || true
+
+      # ---------------------------------------------------------------- libraries
+      - name: Restore libraries
+        id: deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/deps
+          key: deps-${{ env.EMSDK_VERSION }}-${{ hashFiles('scripts/build-deps.sh') }}
+
+      - name: Build libraries (libsamplerate, libsndfile, FFTW)
+        if: steps.deps.outputs.cache-hit != 'true'
+        run: scripts/build-deps.sh "$DEPS"
+
+      - name: Save libraries
+        if: steps.deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/deps
+          key: deps-${{ env.EMSDK_VERSION }}-${{ hashFiles('scripts/build-deps.sh') }}
+
+      # ---------------------------------------------------------------- LMMS
+      - name: LMMS ${{ env.LMMS_TAG }} with the web patches
+        run: scripts/fetch-lmms.sh "$RUNNER_TEMP/lmms"
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-${{ env.EMSDK_VERSION }}-${{ env.QT_VERSION }}-${{ github.run_id }}
+          restore-keys: ccache-${{ env.EMSDK_VERSION }}-${{ env.QT_VERSION }}-
+
+      - name: Configure LMMS
+        run: scripts/configure-lmms.sh "$RUNNER_TEMP/lmms" "$RUNNER_TEMP/build"
+
+      - name: Build LMMS for the web
+        run: |
+          ccache -z
+          set -o pipefail
+          cmake --build "$RUNNER_TEMP/build" --target lmms_web -j "$(nproc)" -- -k 0 2>&1 | tee "$RUNNER_TEMP/build.log"
+          ccache -s
+
+      - name: Errors
+        if: failure()
+        run: |
+          ccache -s || true
+          grep -E "error:|Error |undefined symbol|FAILED:" "$RUNNER_TEMP/build.log" | sort | uniq -c | sort -rn | head -300 || true
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ccache
+          key: ccache-${{ env.EMSDK_VERSION }}-${{ env.QT_VERSION }}-${{ github.run_id }}
+
+      - name: Save Emscripten's library cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/emcache
+          key: emcache-${{ env.EMSDK_VERSION }}-${{ github.run_id }}
+
+      - name: Build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: |
+            ${{ runner.temp }}/build.log
+            ${{ runner.temp }}/build/CMakeCache.txt
+            ${{ runner.temp }}/build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
+
+      # ---------------------------------------------------------------- test
+      - name: Render the test project under Node
+        run: |
+          ls -l "$RUNNER_TEMP/build/lmms.js" "$RUNNER_TEMP/build/lmms.wasm"
+          node tests/render.mjs "$RUNNER_TEMP/build/lmms.js" tests/tripleoscillator.mmp "$RUNNER_TEMP/tripleoscillator.wav" 6.0 | tee "$RUNNER_TEMP/render.txt"
+          {
+            echo "### Web build"
+            echo
+            echo '| file | bytes |'
+            echo '| --- | --- |'
+            for f in lmms.js lmms.wasm; do echo "| $f | $(stat -c %s "$RUNNER_TEMP/build/$f") |"; done
+            echo
+            echo "Test render: \`$(grep '^{' "$RUNNER_TEMP/render.txt")\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the module
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmms-web
+          path: |
+            ${{ runner.temp }}/build/lmms.js
+            ${{ runner.temp }}/build/lmms.wasm
+
+      - name: Upload the test render
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-render
+          path: ${{ runner.temp }}/tripleoscillator.wav
+          if-no-files-found: ignore
