@@ -90,4 +90,6 @@ target_link_libraries(lmms_web PRIVATE
 	"-sSTACK_SIZE=5MB"
 	"-sEXPORTED_FUNCTIONS=${LMMS_WEB_EXPORTED_FUNCTIONS}"
 	"-sEXPORTED_RUNTIME_METHODS=FS,ENV,ccall,cwrap,callMain,UTF8ToString,stringToUTF8,lengthBytesUTF8"
+	# Function names in the module, so profiles and stack traces say where they are
+	"--profiling-funcs"
 )

@@ -55,6 +55,21 @@ char* s_argv[] = {s_arg0, nullptr};
 
 bool s_engineUp = false;
 
+//! Milliseconds since the module started, for the progress lines
+double now()
+{
+#ifdef __EMSCRIPTEN__
+	return emscripten_get_now();
+#else
+	return 0;
+#endif
+}
+
+void progress(const char* what)
+{
+	std::fprintf(stderr, "[lmms %.0f ms] %s\n", now(), what);
+}
+
 //! What LMMS's main() sets up before it renders, done once for the module's lifetime
 void startEngine()
 {
@@ -64,11 +79,16 @@ void startEngine()
 	// page says otherwise (ENV.LMMS_DATA_DIR before the first render)
 	setenv("LMMS_DATA_DIR", "/lmms/data/", 0);
 
+	progress("Starting the engine");
 	if (!QCoreApplication::instance()) { new QCoreApplication(s_argc, s_argv); }
 	NotePlayHandleManager::init();
 	disableDenormals();
+	progress("Reading the settings");
 	ConfigManager::inst()->loadConfigFile(QString{});
+	QObject::connect(Engine::inst(), &Engine::initProgress,
+		[](const QString& what) { progress(what.toUtf8().constData()); });
 	Engine::init(true);
+	progress("Engine up");
 	s_engineUp = true;
 }
 

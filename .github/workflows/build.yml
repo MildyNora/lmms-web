@@ -174,9 +174,10 @@ jobs:
 
       # ---------------------------------------------------------------- test
       - name: Render the test project under Node
+        timeout-minutes: 20
         run: |
           ls -l "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/build/web/lmms.wasm"
-          node tests/render.mjs "$RUNNER_TEMP/build/web/lmms.js" tests/tripleoscillator.mmp "$RUNNER_TEMP/tripleoscillator.wav" 6.0 | tee "$RUNNER_TEMP/render.txt"
+          timeout 600 node tests/render.mjs "$RUNNER_TEMP/build/web/lmms.js" tests/tripleoscillator.mmp "$RUNNER_TEMP/tripleoscillator.wav" 6.0 | tee "$RUNNER_TEMP/render.txt"
           {
             echo "### Web build"
             echo
@@ -186,6 +187,15 @@ jobs:
             echo
             echo "Test render: \`$(grep '^{' "$RUNNER_TEMP/render.txt")\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Where the render spends its time (V8's profiler, when it failed)
+        if: failure()
+        run: |
+          [ -f "$RUNNER_TEMP/build/web/lmms.wasm" ] || exit 0
+          mkdir -p "$RUNNER_TEMP/prof" && cd "$RUNNER_TEMP/prof"
+          timeout -s INT 120 node --prof "$GITHUB_WORKSPACE/tests/render.mjs" "$RUNNER_TEMP/build/web/lmms.js" \
+            "$GITHUB_WORKSPACE/tests/tripleoscillator.mmp" "$RUNNER_TEMP/prof/out.wav" 6.0 || true
+          node --prof-process isolate-*.log 2>/dev/null | head -120 || true
 
       - name: Upload the module
         uses: actions/upload-artifact@v4
