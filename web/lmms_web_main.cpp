@@ -82,6 +82,14 @@ LMMS_WEB_EXPORT const char* lmms_version()
 }
 
 
+//! Start the engine ahead of the first render (it starts by itself otherwise). Returns 0.
+LMMS_WEB_EXPORT int lmms_init()
+{
+	startEngine();
+	return 0;
+}
+
+
 //! Render an LMMS project (.mmp or .mmpz) to a WAV file.
 //! sampleRate: 44100 to 192000, or 0 for 44100. floatOutput: 32-bit float samples when
 //! nonzero, else 16-bit. Returns 0 when the file was written; 1 for bad arguments, 2 when

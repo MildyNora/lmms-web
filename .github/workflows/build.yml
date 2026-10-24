@@ -175,14 +175,14 @@ jobs:
       # ---------------------------------------------------------------- test
       - name: Render the test project under Node
         run: |
-          ls -l "$RUNNER_TEMP/build/lmms.js" "$RUNNER_TEMP/build/lmms.wasm"
-          node tests/render.mjs "$RUNNER_TEMP/build/lmms.js" tests/tripleoscillator.mmp "$RUNNER_TEMP/tripleoscillator.wav" 6.0 | tee "$RUNNER_TEMP/render.txt"
+          ls -l "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/build/web/lmms.wasm"
+          node tests/render.mjs "$RUNNER_TEMP/build/web/lmms.js" tests/tripleoscillator.mmp "$RUNNER_TEMP/tripleoscillator.wav" 6.0 | tee "$RUNNER_TEMP/render.txt"
           {
             echo "### Web build"
             echo
             echo '| file | bytes |'
             echo '| --- | --- |'
-            for f in lmms.js lmms.wasm; do echo "| $f | $(stat -c %s "$RUNNER_TEMP/build/$f") |"; done
+            for f in lmms.js lmms.wasm; do echo "| $f | $(stat -c %s "$RUNNER_TEMP/build/web/$f") |"; done
             echo
             echo "Test render: \`$(grep '^{' "$RUNNER_TEMP/render.txt")\`"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -192,8 +192,8 @@ jobs:
         with:
           name: lmms-web
           path: |
-            ${{ runner.temp }}/build/lmms.js
-            ${{ runner.temp }}/build/lmms.wasm
+            ${{ runner.temp }}/build/web/lmms.js
+            ${{ runner.temp }}/build/web/lmms.wasm
 
       - name: Upload the test render
         if: always()

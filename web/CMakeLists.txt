@@ -47,16 +47,23 @@ target_compile_features(lmms_web PRIVATE cxx_std_20)
 target_static_libraries(lmms_web PRIVATE lmmsobjs)
 target_link_libraries(lmms_web PRIVATE ${LMMS_WEB_PLUGINS} ${LMMS_WEB_LADSPA_TARGETS} ${QT_LIBRARIES})
 
-# lmms.js (the loader, an ES module) and lmms.wasm, at the top of the build directory
+# lmms.js (the loader, an ES module) and lmms.wasm, in <build>/web (LMMS's own lmms
+# target, not built here, would also be lmms.js at the top of the build directory)
 set_target_properties(lmms_web PROPERTIES
 	OUTPUT_NAME lmms
 	SUFFIX ".js"
-	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+)
+
+# LMMS's band-limited wavetables, so the engine loads them instead of computing them
+# (LMMS_DATA_DIR is /lmms/data/ unless the page sets it)
+target_link_options(lmms_web PRIVATE
+	"SHELL:--embed-file ${CMAKE_SOURCE_DIR}/data/wavetables@/lmms/data/wavetables"
 )
 
 # Emscripten's settings for the module. They go last on the link line (as link
 # libraries rather than link options) so they win over the defaults Qt's targets add.
-set(LMMS_WEB_EXPORTED_FUNCTIONS _main _malloc _free _lmms_render _lmms_version)
+set(LMMS_WEB_EXPORTED_FUNCTIONS _main _malloc _free _lmms_init _lmms_render _lmms_version)
 list(JOIN LMMS_WEB_EXPORTED_FUNCTIONS "," LMMS_WEB_EXPORTED_FUNCTIONS)
 target_link_libraries(lmms_web PRIVATE
 	"-sMODULARIZE=1"

@@ -53,6 +53,11 @@ for (const file of extraFiles) {
 	lmms.FS.writeFile(at, readFileSync(file));
 }
 
+const tInit = performance.now();
+lmms.ccall("lmms_init", "number", [], []);
+const engine_ms = Math.round(performance.now() - tInit);
+console.log(`Engine up in ${engine_ms} ms`);
+
 const output = "/work/out.wav";
 const t2 = performance.now();
 const rc = lmms.ccall("lmms_render", "number", ["string", "string", "number", "number"], [project, output, 44100, 1]);
@@ -97,6 +102,7 @@ for (let i = 0; i < frames * channels; i++) {
 const rms = Math.sqrt(sum / Math.max(1, frames * channels));
 const result = {
 	module_ready_ms: Math.round(t1 - t0),
+	engine_init_ms: engine_ms,
 	render_ms: Math.round(t3 - t2),
 	seconds: Number(seconds.toFixed(3)),
 	expected_seconds: expected,

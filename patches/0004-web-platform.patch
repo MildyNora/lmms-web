@@ -1,8 +1,24 @@
-lmms-web: The GUI code compiled into the web build: what a web page can't do (start a file
-manager with QProcess) does nothing there.
+lmms-web: What a web page can't do is left out of the web build: starting other programs
+(QProcess, for the GUI's "show in file manager") and sharing memory with them (the
+song position shared with VST plugins).
 
 Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
 
+diff --git a/src/core/VstSyncController.cpp b/src/core/VstSyncController.cpp
+index 715c630..30f1522 100644
+--- a/src/core/VstSyncController.cpp
++++ b/src/core/VstSyncController.cpp
+@@ -39,6 +39,10 @@ namespace lmms
+ 
+ VstSyncController::VstSyncController()
+ {
++#ifdef LMMS_BUILD_WEB
++	// No VST plugins in the web build, so nothing to share the song position with
++	return;
++#endif
+ 	try
+ 	{
+ 		m_syncData.create();
 diff --git a/src/gui/FileRevealer.cpp b/src/gui/FileRevealer.cpp
 index 518aafe..552a8e2 100644
 --- a/src/gui/FileRevealer.cpp
