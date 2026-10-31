@@ -13,6 +13,8 @@
 #   Opus 1.5.2            BSD-3-Clause        CMake, without intrinsics
 #   libsndfile 1.2.2      LGPL-2.1-or-later   CMake, with FLAC, Ogg Vorbis and Opus (sample tracks play FLAC)
 #   FFTW 3.3.10           GPL-2.0-or-later    autotools, single precision (libfftw3f)
+#   zlib 1.3.1            Zlib                its configure, the static library (ZynAddSubFX reads compressed banks)
+#   FluidSynth 2.6.1      LGPL-2.1-or-later   CMake, the library with libsndfile (SF3 soundfonts), no threads or drivers
 set -euo pipefail
 
 PREFIX=$(realpath -m "${1:?usage: build-deps.sh <prefix>}")
@@ -131,6 +133,36 @@ fetch https://www.fftw.org/fftw-3.3.10.tar.gz \
 	emmake make -j "$JOBS"
 	emmake make install
 )
+echo "::endgroup::"
+
+echo "::group::zlib"
+fetch https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz \
+	38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32
+(
+	cd "$WORK/zlib-1.3.1"
+	emconfigure ./configure --prefix="$PREFIX" --static
+	emmake make -j "$JOBS" libz.a
+	emmake make install
+)
+echo "::endgroup::"
+
+echo "::group::FluidSynth"
+# The library only, as LMMS's Sf2Player uses it: libsndfile decodes SF3's compressed samples; no
+# audio or MIDI drivers, no threads (the web build renders on one), no OpenMP, no network.
+# GCEM, a header library it needs, is downloaded by its own CMake module and checked there.
+fetch https://github.com/FluidSynth/fluidsynth/archive/refs/tags/v2.6.1.tar.gz \
+	3d258a3bf97cc20c59eeebfe62c2432fae88adda74d3ad098681c76e0ebf446b
+cmake_lib "$WORK/fluidsynth-2.6.1" fluidsynth \
+	-Dosal=cpp11 \
+	-Denable-threads=OFF \
+	-Denable-openmp=OFF \
+	-Denable-libsndfile=ON \
+	-Denable-alsa=OFF -Denable-aufile=OFF -Denable-dbus=OFF -Denable-ipv6=OFF -Denable-jack=OFF \
+	-Denable-ladspa=OFF -Denable-midishare=OFF -Denable-network=OFF -Denable-oss=OFF -Denable-sdl3=OFF \
+	-Denable-pulseaudio=OFF -Denable-pipewire=OFF -Denable-readline=OFF -Denable-systemd=OFF \
+	-Denable-portaudio=OFF -Denable-opensles=OFF -Denable-oboe=OFF \
+	-Denable-native-dls=OFF \
+	-Denable-signalsmith=OFF
 echo "::endgroup::"
 
 echo "Installed into $PREFIX:"

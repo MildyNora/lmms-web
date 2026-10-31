@@ -223,8 +223,13 @@ jobs:
           docker run --rm -v "$RUNNER_TEMP:/work" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" debian:bookworm-slim sh -euc '
             apt-get update -qq
             apt-get install -y -qq --no-install-recommends libfluidsynth3 libsamplerate0 libsndfile1 libgl1 libglib2.0-0 \
-              libfontconfig1 libfreetype6 libx11-6 libx11-xcb1 libxcb1 libxext6 libxrender1 libxkbcommon0 libasound2 libdbus-1-3 > /dev/null
+              libfontconfig1 libfreetype6 libx11-6 libx11-xcb1 libxcb1 libxext6 libxrender1 libxkbcommon0 libasound2 libdbus-1-3 \
+              libharfbuzz0b libpng16-16 > /dev/null
             cd /work
+            # (the server's image has more, ffmpeg's among them: anything else LMMS or its plugins still miss, named up front)
+            for f in squashfs-root/usr/bin/lmms squashfs-root/usr/lib/lmms/*.so; do
+              LD_LIBRARY_PATH=/work/squashfs-root/usr/lib:/work/squashfs-root/usr/lib/lmms ldd "$f" | grep "not found" | sed "s|^|${f##*/}: |" || true
+            done
             LD_LIBRARY_PATH=/work/squashfs-root/usr/lib QT_QPA_PLATFORM=offscreen timeout 240 \
               squashfs-root/usr/bin/lmms -c lmmsrc.xml render /work/musical.mmp -o musical-native.wav -f wav -a -s 44100 2>&1 | tail -20
           '
