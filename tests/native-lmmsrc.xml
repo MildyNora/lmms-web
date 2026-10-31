@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<!DOCTYPE lmms-config-file>
+<lmms version="1.3.0-alpha.2" configversion="3">
+  <paths workingdir="@HOME@/" sf2dir="" theme="data:/themes/default/" stkdir="" vstdir="" gigdir="" defaultsf2="" backgroundtheme="" ladspadir=""/>
+  <recentfiles>
+  </recentfiles>
+  <favoriteitems/>
+</lmms>

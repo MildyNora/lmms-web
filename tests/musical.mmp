@@ -1,0 +1,280 @@
+<?xml version="1.0"?>
+<!DOCTYPE lmms-project>
+<lmms-project version="31" type="song" creator="LMMS" creatorversion="1.3.0-alpha.2">
+  <head bpm="120" timesig_numerator="4" timesig_denominator="4" mastervol="100" masterpitch="0" />
+  <song>
+    <trackcontainer type="song">
+      <track type="2" name="Drums" muted="0" solo="0">
+        <sampletrack vol="100" pan="0" mixch="1">
+          <fxchain numofeffects="0" enabled="0" />
+        </sampletrack>
+        <sampleclip pos="191" len="769" src="@ASSETS@/clip2.flac" off="0" muted="0" autoresize="0" name="drums" />
+      </track>
+      <track type="2" name="Chords" muted="0" solo="0">
+        <sampletrack vol="100" pan="0" mixch="2">
+          <fxchain numofeffects="0" enabled="0" />
+        </sampletrack>
+        <sampleclip pos="192" len="768" src="@ASSETS@/clip1.flac" off="0" muted="0" autoresize="0" name="chords" />
+      </track>
+    </trackcontainer>
+    <mixer>
+      <mixerchannel num="0" name="Master" muted="0" soloed="0" volume="1">
+        <fxchain numofeffects="0" enabled="0" />
+      </mixerchannel>
+      <mixerchannel num="1" name="Drums" muted="0" soloed="0" volume="1">
+        <fxchain numofeffects="7" enabled="1">
+          <effect name="compressor" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <CompressorControls midside="0" peakmode="1" inBalance="0" outBalance="0" limiter="0" outGain="0" inGain="0" blend="1" stereoBalance="0" autoMakeup="0" audition="0" feedback="0" autoAttack="0" autoRelease="0" lookahead="0" tilt="0" stereoLink="0" mix="100">
+              <threshold id="1001" value="-18" scale_type="log" />
+              <ratio id="1002" value="4" scale_type="log" />
+              <attack id="1003" value="1.75070437" scale_type="log" />
+              <release id="1004" value="28.01127" scale_type="log" />
+              <knee id="1005" value="0" scale_type="log" />
+              <hold id="1006" value="0" scale_type="log" />
+              <range id="1007" value="-240" scale_type="log" />
+              <rms id="1008" value="1" scale_type="log" />
+              <lookaheadLength id="1009" value="0" scale_type="log" />
+              <tiltFreq id="1010" value="150" scale_type="log" />
+            </CompressorControls>
+            <key />
+          </effect>
+          <effect name="eq" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <Eq Outputgain="0" HPactive="0" Lowshelfactive="0" Peak1active="1" Peak2active="0" Peak3active="0" Peak4active="0" Highshelfactive="0" LPactive="0" LP12="0" LP24="0" LP48="0" HP12="0" HP24="0" HP48="0" LP="0" HP="0" AnalyseIn="0" AnalyseOut="0" Peak1bw="1.38841618">
+              <Inputgain id="1011" value="0" scale_type="log" />
+              <Peak1freq id="1012" value="120" scale_type="log" />
+              <Peak1gain id="1013" value="3" scale_type="log" />
+            </Eq>
+            <key />
+          </effect>
+          <effect name="eq" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <Eq Outputgain="0" HPactive="0" Lowshelfactive="1" Peak1active="0" Peak2active="0" Peak3active="0" Peak4active="0" Highshelfactive="0" LPactive="0" LP12="0" LP24="0" LP48="0" HP12="0" HP24="0" HP48="0" LP="0" HP="0" AnalyseIn="0" AnalyseOut="0" Lowshelfgain="2" LowShelfres="0.7">
+              <Inputgain id="1014" value="0" scale_type="log" />
+              <LowShelffreq id="1015" value="90" scale_type="log" />
+            </Eq>
+            <key />
+          </effect>
+          <effect name="eq" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <Eq Outputgain="0" HPactive="0" Lowshelfactive="0" Peak1active="0" Peak2active="0" Peak3active="0" Peak4active="0" Highshelfactive="1" LPactive="0" LP12="0" LP24="0" LP48="0" HP12="0" HP24="0" HP48="0" LP="0" HP="0" AnalyseIn="0" AnalyseOut="0" HighShelfgain="-2" HighShelfres="0.7">
+              <Inputgain id="1016" value="0" scale_type="log" />
+              <Highshelffreq id="1017" value="8000" scale_type="log" />
+            </Eq>
+            <key />
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="4" link="1">
+              <port00 link="1" data="10.999" />
+              <port01 link="1" data="44100" />
+              <port10 link="1" data="10.999" />
+              <port11 link="1" data="44100" />
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="decimator_1202" />
+              <attribute name="plugin" value="decimator" />
+            </key>
+          </effect>
+          <effect name="waveshaper" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <waveshapercontrols inputGain="1" outputGain="1" clipInput="1" waveShape="THIjPCJuozzLGvU8fV0jPUQlTD2s4nQ90smOPREboz0NZLc9xaPLPTbZ3z1jA/Q9pxAEPv4YDj47Ghg+5BMiPoAFLD6X7jU+tM4/PmOlST4yclM+rzRdPm7sZj4CmXA+ATp6PoHngT7Rq4Y+vWmLPhUhkD6r0ZQ+T3uZPtUdnj4RuaI+2UynPgPZqz5pXbA+49m0PkxOuT6Aur0+Xh7CPsN5xj6QzMo+pxbPPupX0z4/kNc+ib/bPrLl3z6gAuQ+PhboPnYg7D41IfA+aRj0PgEG+D7s6fs+HcT/PkPKAT+OrQM/6YsFP1BlBz/AOQk/MwkLP6jTDD8cmQ4/jFkQP/kUEj9gyxM/wnwVPx8pFz930Bg/zXIaPyEQHD91qB0/zjsfPyzKID+VUyI/C9gjP5RXJT8z0iY/70coP8u4KT/PJCs/AIwsP2XuLT8ETC8/5aQwPw/5MT+JSDM/W5M0P47ZNT8pGzc/Nlg4P72QOT/IxDo/XvQ7P4sfPT9XRj4/zGg/P/SGQD/ZoEE/hbZCPwLIQz9b1UQ/m95FP8vjRj/35Ec/KeJIP2zbST/L0Eo/UcJLPwmwTD/+mU0/OoBOP8piTz+4QVA/Dh1RP9n0UT8kyVI/+ZlTP2NnVD9uMVU/JfhVP5K7Vj/Be1c/vThYP5DyWD9GqVk/6VxaP4QNWz8hu1s/zGVcP48NXT90sl0/hlReP8/zXj9akF8/MCpgP13BYD/pVWE/4OdhP0p3Yj8yBGM/oY5jP6EWZD88nGQ/ex9lP2egZT8KH2Y/bJtmP5cVZz+UjWc/bANoPyd3aD/O6Gg/alhpPwLGaT+hMWo/TJtqPw4Daz/uaGs/88xrPyYvbD+Pj2w/Ne5sPx9LbT9Wpm0/4P9tP8VXbj8Lrm4/uwJvP9pVbz9wp28/hPdvPxxGcD8+k3A/8t5wPz4pcT8ncnE/tLlxP+v/cT/TRHI/cIhyP8rKcj/lC3M/x0tzP3aKcz/3x3M/UAR0P4Y/dD+feXQ/nrJ0P4rqdD9nIXU/Old1PwmMdT/Xv3U/qfJ1P4Ukdj9uVXY/aIV2P3q0dj8=" />
+            <key />
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="3">
+              <port00 data="0" />
+              <port01 data="-1" />
+              <port02 data="50" data_syncmode="0" />
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="fast_lookahead_limiter_1913" />
+              <attribute name="plugin" value="fastLookaheadLimiter" />
+            </key>
+          </effect>
+        </fxchain>
+        <send channel="0" amount="1" />
+      </mixerchannel>
+      <mixerchannel num="2" name="Chords" muted="0" soloed="0" volume="1">
+        <fxchain numofeffects="16" enabled="1">
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="2" link="1">
+              <port00 link="1">
+                <data id="1018" value="120.00877" scale_type="log" />
+              </port00>
+              <port10 link="1">
+                <data id="1019" value="120.00877" scale_type="log" />
+              </port10>
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="cmt" />
+              <attribute name="plugin" value="hpf" />
+            </key>
+          </effect>
+          <effect name="amplifier" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <AmplifierControls volume="100.862247" pan="0" left="100" right="100" />
+            <key />
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="4" link="1">
+              <port00 link="1" data="0.0340136054" data_syncmode="0" />
+              <port01 link="1" data="0.5" />
+              <port10 link="1" data="0.0340136054" data_syncmode="0" />
+              <port11 link="1" data="0.5" />
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="cmt" />
+              <attribute name="plugin" value="delay_5s" />
+            </key>
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="2" link="1">
+              <port00 link="1">
+                <data id="1020" value="7540.03899" scale_type="log" />
+              </port00>
+              <port10 link="1">
+                <data id="1021" value="7540.03899" scale_type="log" />
+              </port10>
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="cmt" />
+              <attribute name="plugin" value="lpf" />
+            </key>
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="12" link="1">
+              <port01 link="1" data_syncmode="0">
+                <data id="1022" value="7" scale_type="log" />
+              </port01>
+              <port02 link="1" data="2.5" data_syncmode="0" />
+              <port03 link="1" data="1" />
+              <port04 link="1" data="0.7" />
+              <port05 link="1" data="0.3" />
+              <port06 link="1" data="0" />
+              <port11 link="1" data_syncmode="0">
+                <data id="1023" value="7" scale_type="log" />
+              </port11>
+              <port12 link="1" data="2.5" data_syncmode="0" />
+              <port13 link="1" data="1" />
+              <port14 link="1" data="0.7" />
+              <port15 link="1" data="0.3" />
+              <port16 link="1" data="0" />
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="caps" />
+              <attribute name="plugin" value="ChorusI" />
+            </key>
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="13">
+              <port04>
+                <data id="1024" value="1300" scale_type="log" />
+              </port04>
+              <port05 data="2989.73529" />
+              <port06>
+                <data id="1025" value="0.5" scale_type="log" />
+              </port06>
+              <port07 data="0" />
+              <port08 data="6" />
+              <port09 data="0" />
+              <port010 data="0" />
+              <port011 data="0.3" />
+              <port012 data="0.7" />
+              <port013 data="1" />
+              <port014 data="1" />
+              <port015 data="1" />
+              <port024 data="1" />
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="veal" />
+              <attribute name="plugin" value="Phaser" />
+            </key>
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="7">
+              <port04>
+                <data id="1026" value="3120" scale_type="log" />
+              </port04>
+              <port05 data="0.707" />
+              <port06 data="1" />
+              <port07>
+                <data id="1027" value="5" scale_type="log" />
+              </port07>
+              <port08 data="0" />
+              <port09 data="1" />
+              <port010 data="1" />
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="veal" />
+              <attribute name="plugin" value="Filter" />
+            </key>
+          </effect>
+          <effect name="waveshaper" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="0.5">
+            <waveshapercontrols inputGain="1" outputGain="1" clipInput="1" waveShape="ptWjO3rRIzzIr3U8ysCjPFyhzDyHd/U8niAPPTZ+Iz2H0zc9jh9MPUhhYD22l3Q97mCEPV5vjj2wdpg9anaiPRFurD0uXbY9TEPAPfYfyj258tM9JrvdPc145z1DK/E9HNL6PXg2Aj6t/QY+e74LPrJ4ED4hLBU+m9gZPvJ9Hj77GyM+i7InPnlBLD6eyDA+0Uc1PvC+OT7ULT4+XZRCPmjyRj7WR0s+iZRPPmLYUz5HE1g+HUVcPsttYD45jWQ+UqNoPv+vbD4ts3A+yqx0PsWceD4Ng3w+yy+APigZgj6Y/YM+F92FPp63hz4qjYk+t12LPkMpjT7K744+S7GQPsVtkj43JZQ+oNeVPgGFlz5bLZk+r9CaPv5unD5LCJ4+mJyfPukroT5BtqI+ozukPhW8pT6bN6c+Oa6oPvYfqj7XjKs+4/SsPh9Yrj6Ttq8+RRCxPj5lsj6EtbM+HwG1PhhItj53irc+Rci4PooBuj5PNrs+n2a8PoGSvT4Aur4+Jt2/Pvv7wD6MFsI+4SzDPgQ/xD4BTcU+4lbGPrFcxz55Xsg+RVzJPiBWyj4UTMs+LT7MPnUszT74Fs4+wf3OPtrgzz5PwNA+K5zRPnl00j5FSdM+mRrUPoDo1D4Gs9U+NXrWPho+1z69/tc+LLzYPnB22T6VLdo+peHaPquS2z6yQNw+xevcPu2T3T43Od4+q9vePlV73z4/GOA+c7LgPvxJ4T7i3uE+MXHiPvMA4z4wjuM+9BjkPkeh5D4zJ+U+warlPvwr5j7squY+mifnPg+i5z5VGug+dJDoPnYE6T5iduk+QebpPh1U6j78v+o+6CnrPumR6z4H+Os+SVzsPri+7D5bH+0+On7tPl3b7T7LNu4+jJDuPqbo7j4hP+8+BJTvPlbn7z4eOfA+YonwPirY8D57JfE+XXHxPtW78T7rBPI+pEzyPgaT8j4X2PI+3hvzPl9e8z6in/M+q9/zPoAe9D4nXPQ+pZj0Pv/T9D46DvU+XEf1Pmp/9T5otvU+XOz1Pksh9j44VfY+Koj2PiS69j4q6/Y+Qhv3PnBK9z4=" />
+            <key />
+          </effect>
+          <effect name="stereomatrix" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <stereomatrixcontrols l-l="0.6" l-r="-0.1" r-l="-0.1" r-r="0.6" />
+            <key />
+          </effect>
+          <effect name="amplifier" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <AmplifierControls volume="200" pan="0" left="100" right="100" />
+            <key />
+          </effect>
+          <effect name="delay" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="0.2">
+            <Delay DelayTimeSamples="0.375" DelayTimeSamples_syncmode="0" LfoFrequency="2" LfoFrequency_syncmode="0" LfoAmount="0" LfoAmount_syncmode="0" FeebackAmount="0.3" OutGain="0" />
+            <key />
+          </effect>
+          <effect name="stereomatrix" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <stereomatrixcontrols l-l="0" l-r="1" r-l="1" r-r="0" />
+            <key />
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="10">
+              <port00 data="250" />
+              <port01 data="40" />
+              <port02 data="250" />
+              <port03 data="40" />
+              <port04 data="-13.9794001" />
+              <port05 data="-13.9794001" />
+              <port06 data="0" />
+              <port07 data="1" />
+              <port08 data="1" />
+              <port09 data="1" />
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="tap_echo" />
+              <attribute name="plugin" value="tap_stereo_echo" />
+            </key>
+          </effect>
+          <effect name="ladspaeffect" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <ladspacontrols ports="6">
+              <port04 data="0" />
+              <port05 data="0.6" />
+              <port06>
+                <data id="1028" value="0.5" scale_type="log" />
+              </port06>
+              <port07>
+                <data id="1029" value="0.0833333333" scale_type="log" />
+              </port07>
+              <port08>
+                <data id="1030" value="0.45" scale_type="log" />
+              </port08>
+              <port09 data="1" />
+            </ladspacontrols>
+            <key>
+              <attribute name="file" value="cmt" />
+              <attribute name="plugin" value="freeverb3" />
+            </key>
+          </effect>
+          <effect name="amplifier" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <AmplifierControls volume="79.4328235" pan="0" left="100" right="100" />
+            <key />
+          </effect>
+          <effect name="amplifier" on="1" autoquit="1" autoquit_numerator="4" autoquit_denominator="4" autoquit_syncmode="0" wet="1">
+            <AmplifierControls volume="70.7945784" pan="-10" left="100" right="100" />
+            <key />
+          </effect>
+        </fxchain>
+        <send channel="0" amount="1" />
+      </mixerchannel>
+    </mixer>
+    <timeline lp0pos="0" lp1pos="192" lpstate="0" />
+    <controllers />
+  </song>
+</lmms-project>

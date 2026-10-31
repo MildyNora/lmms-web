@@ -15,7 +15,10 @@ BUILD=$(realpath -m "${2:?usage: configure-lmms.sh <lmms source> <build director
 shift 2
 : "${QT_WASM:?}" "${QT_HOST:?}" "${DEPS:?}"
 
-PLUGINS=${PLUGINS:-"TripleOscillator AudioFileProcessor Kicker Amplifier Compressor Delay Eq Flanger StereoMatrix WaveShaper"}
+PLUGINS=${PLUGINS:-"TripleOscillator AudioFileProcessor Kicker Amplifier Compressor Delay Eq Flanger StereoMatrix WaveShaper LadspaEffect"}
+# The LADSPA libraries Musical's projects use (its effects: CMT's filters, delays and reverb, CAPS's chorus, Calf's phaser and
+# filter, TAP's stereo echo, SWH's amplifier, decimator and limiter); the others come later as plugins loaded on their own
+LADSPA=${LADSPA:-"cmt caps veal tap_echo amp_1181 decimator_1202 fast_lookahead_limiter_1913"}
 
 # Only the cross-compiled libraries' pkg-config files, never the host's
 export PKG_CONFIG_LIBDIR="$DEPS/lib/pkgconfig"
@@ -23,7 +26,7 @@ export PKG_CONFIG_PATH="$DEPS/lib/pkgconfig"
 
 # Every optional backend and plugin family off; the web build adds them back one by one
 OFF=(ALSA OSS JACK WEAKJACK PULSEAUDIO PORTAUDIO SNDIO SOUNDIO SDL CARLA LV2 SUIL VST VST_32 VST_64
-	GIG STK MP3LAME OGGVORBIS SF2 SID CALF CAPS CMT SWH TAP)
+	GIG STK MP3LAME OGGVORBIS SF2 SID)
 WANTS=()
 for want in "${OFF[@]}"; do WANTS+=("-DWANT_$want=OFF"); done
 
@@ -37,6 +40,7 @@ sh "$QT_WASM/bin/qt-cmake" -S "$SRC" -B "$BUILD" -G Ninja \
 	-DWANT_QT6=ON \
 	"${WANTS[@]}" \
 	-DPLUGIN_LIST="$PLUGINS" \
+	-DLMMS_WEB_LADSPA="$LADSPA" \
 	-DLMMS_WEB_DIR="$HERE/web" \
 	-DUSE_COMPILE_CACHE=ON \
 	-DSndFile_VERSION=1.2.2 \

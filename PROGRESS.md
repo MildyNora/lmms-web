@@ -9,8 +9,8 @@ LMMS v1.3.0-alpha.2 for WebAssembly, built by GitHub Actions. Newest first withi
 | M1 | Toolchain and libraries in CI (Emscripten 3.1.56, Qt 6.8.3 for WebAssembly single-threaded + host Qt, libsndfile, FFTW, libsamplerate), cached | done |
 | M2 | Configure LMMS (Qt 6, every optional backend and plugin family off) | done |
 | M3 | Compile and link for the web (static plugins with a compiled-in registry, no threads, headless entry point) | done: LMMS's core, its GUI code and 10 plugins compile and link into `lmms.js` + `lmms.wasm` |
-| M4 | It renders: a TripleOscillator project under Node, checked | in progress: the module loads under Node; the engine's start hung in FFTW's planner (fixed in the libraries' build, being checked) |
-| M5 | Sample tracks and Musical's effects (native and LADSPA), a project shaped like Musical's | prepared: LADSPA libraries as static libraries (patches/0005), FLAC/Ogg/Vorbis/Opus for libsndfile, the test project (tests/musical.mmp) |
+| M4 | It renders: a TripleOscillator project under Node, checked | done: 6.0 s of audio in 100 ms (module ready in 89 ms, engine up in 312 ms) |
+| M5 | Sample tracks and Musical's effects (native and LADSPA), a project shaped like Musical's | in progress: FLAC/Ogg/Vorbis/Opus for libsndfile, LadspaEffect with CMT, CAPS, Calf, TAP's echo and SWH's amplifier, decimator and limiter linked in, tests/musical.mmp rendered on the web and by native LMMS and compared |
 | M6 | Sf2Player (FluidSynth), ZynAddSubFX, the other instruments; plugins loaded separately | not started |
 
 ## Where things stand
@@ -24,11 +24,14 @@ LMMS v1.3.0-alpha.2 for WebAssembly, built by GitHub Actions. Newest first withi
 - **Compile and link (M3)**: the core (`lmmsobjs`, which includes the GUI code), TripleOscillator, AudioFileProcessor, Kicker,
   Amplifier, Compressor, Delay, Eq, Flanger, StereoMatrix and WaveShaper compile; with ccache warm a rebuild takes a few minutes.
   `lmms.wasm` is 19.2 MB and `lmms.js` 267 KB before any size work (no compression, the GUI code still in).
-- **Render (M4)**: the module instantiates under Node in about 90 ms and answers `lmms_version()`. `lmms_init()` (the engine's
-  start) didn't return: V8's profile of the stuck run shows FFTW measuring plans for the oscillators' wavetables forever.
-  FFTW's configure finds a "cycle counter" under Emscripten that WebAssembly doesn't have, so `FFTW_MEASURE` (what LMMS asks
-  for) never gets a usable timing. The libraries' build now takes the counter away, so FFTW plans by its estimates, as it
-  does on any platform without one.
+- **Render (M4)**: done. The engine's start had hung in FFTW's planner (Emscripten reports a cycle counter WebAssembly doesn't
+  have, so `FFTW_MEASURE` never got a timing); the libraries' build takes the counter away and FFTW plans by its estimates.
+  The TripleOscillator project renders 6.0 s of stereo float audio in about 100 ms under Node.
+- **Musical's projects (M5)**: `tests/musical.mmp` was written by Musical's engine as it writes every LMMS project: two sample
+  tracks of synthetic audio (sines and noise, `tests/assets`), every effect type the engine maps to LMMS (native: amplifier,
+  compressor, delay, EQ, stereo matrix, waveshaper; LADSPA: CMT, CAPS, Calf, TAP's stereo echo, SWH's decimator and limiter).
+  CI renders it on the web and with LMMS's own release (the Linux AppImage, checksum-verified) and nulls the two
+  (`tests/compare.mjs`).
 
 ## Runs
 
@@ -36,9 +39,9 @@ LMMS v1.3.0-alpha.2 for WebAssembly, built by GitHub Actions. Newest first withi
 
 ## Next
 
-1. Find what the engine's start waits on under Node, fix it, get the TripleOscillator render checked (M4).
-2. M5: LADSPA libraries (CMT, CAPS, Calf, TAP, SWH), FLAC sample clips, the Musical-shaped project, and a null test against
-   native LMMS (the release's AppImage renders the same projects in CI).
+1. M5: get Musical's test project rendering on the web and nulling against native LMMS.
+2. M6: Sf2Player (FluidSynth for WebAssembly) with the soundfont split into per-instrument packages loaded when a project
+   needs them; ZynAddSubFX as the first plugin loaded on its own (an Emscripten side module); the other instruments.
 3. Size: leave out the GUI code and Qt's platform/image plugins the headless module doesn't use.
 
 ## Blockers

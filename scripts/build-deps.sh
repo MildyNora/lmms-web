@@ -7,7 +7,11 @@
 # Every download is checked against its SHA-256.
 #
 #   libsamplerate 0.2.2   BSD-2-Clause        CMake
-#   libsndfile 1.2.2      LGPL-2.1-or-later   CMake, its built-in formats only (WAV, AIFF, ...)
+#   libogg 1.3.5          BSD-3-Clause        CMake
+#   libvorbis 1.3.7       BSD-3-Clause        CMake
+#   FLAC 1.4.3            BSD-3-Clause        CMake, the C library only
+#   Opus 1.5.2            BSD-3-Clause        CMake, without intrinsics
+#   libsndfile 1.2.2      LGPL-2.1-or-later   CMake, with FLAC, Ogg Vorbis and Opus (sample tracks play FLAC)
 #   FFTW 3.3.10           GPL-2.0-or-later    autotools, single precision (libfftw3f)
 set -euo pipefail
 
@@ -30,6 +34,8 @@ cmake_lib() { # <source dir> <name> <cmake args...>
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX="$PREFIX" \
 		-DBUILD_SHARED_LIBS=OFF \
+		-DCMAKE_PREFIX_PATH="$PREFIX" \
+		-DCMAKE_FIND_ROOT_PATH="$PREFIX" \
 		"$@"
 	cmake --build "$WORK/build-$name" -j "$JOBS"
 	cmake --install "$WORK/build-$name"
@@ -44,6 +50,46 @@ cmake_lib "$WORK/libsamplerate-0.2.2" samplerate \
 	-DLIBSAMPLERATE_INSTALL=ON
 echo "::endgroup::"
 
+echo "::group::libogg"
+fetch https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.xz \
+	c4d91be36fc8e54deae7575241e03f4211eb102afb3fc0775fbbc1b740016705
+cmake_lib "$WORK/libogg-1.3.5" ogg \
+	-DINSTALL_DOCS=OFF \
+	-DBUILD_TESTING=OFF
+echo "::endgroup::"
+
+echo "::group::libvorbis"
+fetch https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz \
+	b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b
+cmake_lib "$WORK/libvorbis-1.3.7" vorbis
+echo "::endgroup::"
+
+echo "::group::FLAC"
+fetch https://downloads.xiph.org/releases/flac/flac-1.4.3.tar.xz \
+	6c58e69cd22348f441b861092b825e591d0b822e106de6eb0ee4d05d27205b70
+cmake_lib "$WORK/flac-1.4.3" flac \
+	-DBUILD_CXXLIBS=OFF \
+	-DBUILD_PROGRAMS=OFF \
+	-DBUILD_EXAMPLES=OFF \
+	-DBUILD_TESTING=OFF \
+	-DBUILD_DOCS=OFF \
+	-DINSTALL_MANPAGES=OFF \
+	-DWITH_OGG=ON \
+	-DWITH_STACK_PROTECTOR=OFF
+echo "::endgroup::"
+
+echo "::group::Opus"
+fetch https://downloads.xiph.org/releases/opus/opus-1.5.2.tar.gz \
+	65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1
+cmake_lib "$WORK/opus-1.5.2" opus \
+	-DOPUS_BUILD_PROGRAMS=OFF \
+	-DOPUS_BUILD_TESTING=OFF \
+	-DOPUS_STACK_PROTECTOR=OFF \
+	-DOPUS_DISABLE_INTRINSICS=ON \
+	-DOPUS_INSTALL_PKG_CONFIG_MODULE=ON \
+	-DOPUS_INSTALL_CMAKE_CONFIG_MODULE=ON
+echo "::endgroup::"
+
 echo "::group::libsndfile"
 fetch https://github.com/libsndfile/libsndfile/releases/download/1.2.2/libsndfile-1.2.2.tar.xz \
 	3799ca9924d3125038880367bf1468e53a1b7e3686a934f098b7e1d286cdb80e
@@ -52,7 +98,7 @@ cmake_lib "$WORK/libsndfile-1.2.2" sndfile \
 	-DBUILD_EXAMPLES=OFF \
 	-DBUILD_TESTING=OFF \
 	-DBUILD_REGTEST=OFF \
-	-DENABLE_EXTERNAL_LIBS=OFF \
+	-DENABLE_EXTERNAL_LIBS=ON \
 	-DENABLE_MPEG=OFF \
 	-DENABLE_CPACK=OFF \
 	-DENABLE_PACKAGE_CONFIG=ON \

@@ -32,7 +32,7 @@ jobs:
       - name: Host tools
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends ninja-build ccache
+          sudo apt-get install -y -q --no-install-recommends ninja-build ccache liblist-moreutils-perl
           pipx install "cmake==3.31.6"
           pipx install "aqtinstall==3.3.0"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -198,6 +198,43 @@ jobs:
             "$GITHUB_WORKSPACE/tests/tripleoscillator.mmp" "$RUNNER_TEMP/prof/out.wav" 6.0 || true
           node --prof-process isolate-*.log 2>/dev/null | head -120 || true
 
+      - name: Render Musical's test project under Node (sample tracks, native and LADSPA effects)
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          sed "s|@ASSETS@|$GITHUB_WORKSPACE/tests/assets|g" tests/musical.mmp > "$RUNNER_TEMP/musical.mmp"
+          timeout 300 node tests/render.mjs "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/musical.mmp" "$RUNNER_TEMP/musical-web.wav" 12.0 \
+            tests/assets/clip1.flac tests/assets/clip2.flac | tee "$RUNNER_TEMP/render-musical.txt"
+          echo "Musical's test project (web): \`$(grep '^{' "$RUNNER_TEMP/render-musical.txt")\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # The same project through LMMS's own release build: the web build is right when the two null
+      - name: Native LMMS renders the same project
+        timeout-minutes: 15
+        run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o lmms.AppImage "https://github.com/LMMS/lmms/releases/download/$LMMS_TAG/lmms-1.3.0-alpha.2-linux-x86_64.AppImage"
+          echo "7580e832b9a10041ef632ebf2d70d588f41c31be8c6c80d1f9a96d1c0871298b  lmms.AppImage" | sha256sum -c -
+          chmod +x lmms.AppImage
+          ./lmms.AppImage --appimage-extract > /dev/null
+          mkdir -p lmms-home
+          sed "s|@HOME@|$RUNNER_TEMP/lmms-home|" "$GITHUB_WORKSPACE/tests/native-lmmsrc.xml" > lmmsrc.xml
+          QT_QPA_PLATFORM=offscreen timeout 240 squashfs-root/AppRun -c lmmsrc.xml render "$RUNNER_TEMP/musical.mmp" -o musical-native.wav -f wav -a -s 44100 2>&1 | tail -20
+          ls -l musical-native.wav
+
+      - name: The two renders, compared
+        run: |
+          set -o pipefail
+          node tests/compare.mjs "$RUNNER_TEMP/musical-native.wav" "$RUNNER_TEMP/musical-web.wav" | tee "$RUNNER_TEMP/compare.txt"
+          {
+            echo
+            echo "### Musical's test project: web against native LMMS"
+            echo
+            echo "\`$(grep '^{' "$RUNNER_TEMP/compare.txt")\`"
+            echo
+            grep '^|' "$RUNNER_TEMP/compare.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload the module
         uses: actions/upload-artifact@v4
         with:
@@ -211,5 +248,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-render
-          path: ${{ runner.temp }}/tripleoscillator.wav
+          path: |
+            ${{ runner.temp }}/tripleoscillator.wav
+            ${{ runner.temp }}/musical-web.wav
+            ${{ runner.temp }}/musical-native.wav
           if-no-files-found: ignore
