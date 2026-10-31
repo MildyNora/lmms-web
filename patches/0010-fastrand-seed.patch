@@ -1,0 +1,38 @@
+lmms-web: fastRand()'s state where the web build can set it again before each render (fastRandSeed), so
+a render in a module that has rendered before sounds as one in a fresh process does: DrumSynth's noise,
+for one, comes from fastRand(), and a page renders song after song in one module.
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/include/lmms_math.h b/include/lmms_math.h
+index a0f43c3..8f316d4 100644
+--- a/include/lmms_math.h
++++ b/include/lmms_math.h
+@@ -83,11 +83,27 @@ inline auto absFraction(std::floating_point auto x) noexcept
+ }
+ 
+ 
++#ifdef LMMS_BUILD_WEB
++namespace detail
++{
++//! fastRand()'s state where a render can set it again (see fastRandSeed)
++inline thread_local unsigned long fastRandNext = 1;
++}
++
++//! @brief Starts fastRand() over from @p seed: the web build does before each render, so a render in a module that
++//! has rendered before sounds as one in a fresh process (where the state starts at 1)
++inline void fastRandSeed(unsigned long seed = 1) noexcept { detail::fastRandNext = seed; }
++#endif
++
+ //! @brief Returns a pseudorandom integer within [0, 32768).
+ //! @returns A pseudorandom integer greater than or equal to 0 and less than 32767.
+ inline int fastRand() noexcept
+ {
++#ifdef LMMS_BUILD_WEB
++	auto& s_next = detail::fastRandNext;
++#else
+ 	thread_local unsigned long s_next = 1;
++#endif
+ 	s_next = s_next * 1103515245 + 12345;
+ 	return s_next / 65536 % 32768;
+ }

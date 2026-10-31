@@ -36,6 +36,7 @@
 #include "RenderManager.h"
 #include "Song.h"
 #include "lmmsversion.h"
+#include "lmms_math.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -133,6 +134,11 @@ LMMS_WEB_EXPORT int lmms_render(const char* projectPath, const char* outputPath,
 	}
 
 	startEngine();
+
+	// Every render as from a fresh start: the random numbers LMMS's instruments draw (DrumSynth's noise, among others)
+	// begin where a new process's do, whatever this module rendered before
+	fastRandSeed(1);
+	std::srand(1);
 
 	std::printf("Loading project...\n");
 	Song* song = Engine::getSong();

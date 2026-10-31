@@ -41,6 +41,8 @@ LMMS v1.3.0-alpha.2 for WebAssembly, built by GitHub Actions. Newest first withi
   soundfont bit for bit as the whole one. The reference runs in a Debian bookworm container as Musical's server runs LMMS.
 - **Pages (M7)**: `tests/twice.mjs` renders A, B, then A again in one module (a page keeps it loaded); a version tag publishes the
   tested `lmms.js` and `lmms.wasm` as a release with `SHA256SUMS`.
+  Each render starts LMMS's random numbers over (patches/0010, `fastRandSeed`): DrumSynth's noise comes from them, and without
+  that a second render of a project with DrumSynth sounds in one module differed from the first (a fresh process's) by -10 dB.
 
 ## Runs
 

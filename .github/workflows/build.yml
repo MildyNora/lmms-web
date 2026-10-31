@@ -258,15 +258,6 @@ jobs:
           path: ${{ runner.temp }}/MuseScore_General.sf3
           key: soundfont-5b85b6c2c61d10b2b91cddd41efcce7b25cd31c8271d511c73afafbef20b6fa3
 
-      - name: Several renders in one module (a page keeps it loaded)
-        timeout-minutes: 15
-        run: |
-          set -o pipefail
-          sed "s|@ASSETS@|$GITHUB_WORKSPACE/tests/assets|g" tests/musical.mmp > "$RUNNER_TEMP/musical.mmp"
-          timeout 600 node tests/twice.mjs "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/musical.mmp" tests/tripleoscillator.mmp \
-            tests/assets/clip1.flac tests/assets/clip2.flac | tee "$RUNNER_TEMP/twice.txt"
-          echo "Several renders in one module: \`$(grep '^{' "$RUNNER_TEMP/twice.txt")\`" >> "$GITHUB_STEP_SUMMARY"
-
       # Musical's test project: two sample tracks through every effect Musical maps to LMMS, native and LADSPA
       - name: "Musical's test project: web"
         timeout-minutes: 20
@@ -311,6 +302,18 @@ jobs:
           timeout 1500 node tests/render.mjs "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/instruments-web.mmp" "$RUNNER_TEMP/instruments-web.wav" \
             "$seconds" "${files[@]}" | tee "$RUNNER_TEMP/render-instruments.txt"
           echo "Instruments (web): \`$(grep '^{' "$RUNNER_TEMP/render-instruments.txt")\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # A page keeps the module and renders song after song in it: every instrument (DrumSynth's noise among them), then Musical's
+      # test project, then every instrument again, must give the same instruments twice
+      - name: Several renders in one module (a page keeps it loaded)
+        timeout-minutes: 20
+        run: |
+          set -o pipefail
+          S="$RUNNER_TEMP/squashfs-root/usr/share/lmms/samples"
+          files=("$RUNNER_TEMP/sf-subset.sf3=/sf/MuseScore_General.sf3" tests/assets/clip1.flac tests/assets/clip2.flac)
+          for f in $(python3 -c 'import json; print(" ".join(json.load(open("tests/instruments.json"))["samples"]))'); do files+=("$S/$f=/lmms/data/samples/$f"); done
+          timeout 900 node tests/twice.mjs "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/instruments-web.mmp" "$RUNNER_TEMP/musical.mmp" "${files[@]}" | tee "$RUNNER_TEMP/twice.txt"
+          echo "Several renders in one module: \`$(grep '^{' "$RUNNER_TEMP/twice.txt")\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Instruments: native"
         if: always() && steps.reference.outcome == 'success'
