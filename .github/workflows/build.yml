@@ -215,12 +215,24 @@ jobs:
           ./lmms.AppImage --appimage-extract > /dev/null
           mkdir -p lmms-home
           sed "s|@HOME@|/work/lmms-home|" "$GITHUB_WORKSPACE/tests/native-lmmsrc.xml" > lmmsrc.xml
+          # (FluidSynth 2.6.1 built over Debian's 2.3.1, as Musical's server image now does, so the soundfont plays the same
+          # here as in the web build; the two versions' reverb and chorus came out about 1 dB apart)
           docker build -q -t lmms-native - <<'EOF'
           FROM debian:bookworm-slim
-          RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends libfluidsynth3 libsamplerate0 libsndfile1 libgl1 \
+          RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends libsamplerate0 libsndfile1 libgl1 \
                 libglib2.0-0 libfontconfig1 libfreetype6 libx11-6 libx11-xcb1 libxcb1 libxext6 libxrender1 libxkbcommon0 libasound2 \
-                libdbus-1-3 libharfbuzz0b libpng16-16 > /dev/null && rm -rf /var/lib/apt/lists/*
+                libdbus-1-3 libharfbuzz0b libpng16-16 ca-certificates curl cmake g++ make pkg-config libsndfile1-dev > /dev/null \
+           && curl -fsSL --retry 3 -o /tmp/fs.tar.gz https://github.com/FluidSynth/fluidsynth/archive/refs/tags/v2.6.1.tar.gz \
+           && echo "3d258a3bf97cc20c59eeebfe62c2432fae88adda74d3ad098681c76e0ebf446b  /tmp/fs.tar.gz" | sha256sum -c - \
+           && tar -xzf /tmp/fs.tar.gz -C /tmp \
+           && cmake -S /tmp/fluidsynth-2.6.1 -B /tmp/fs -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -Dosal=cpp11 \
+                -Denable-alsa=OFF -Denable-pulseaudio=OFF -Denable-pipewire=OFF -Denable-jack=OFF -Denable-sdl3=OFF -Denable-oss=OFF \
+                -Denable-dbus=OFF -Denable-systemd=OFF -Denable-readline=OFF -Denable-network=OFF -Denable-ladspa=OFF -Denable-native-dls=OFF \
+                -Denable-signalsmith=OFF -Denable-portaudio=OFF -Denable-libsndfile=ON > /dev/null \
+           && cmake --build /tmp/fs -j "$(nproc)" > /dev/null && cmake --install /tmp/fs > /dev/null && ldconfig \
+           && rm -rf /tmp/fs /tmp/fluidsynth-2.6.1 /tmp/fs.tar.gz /var/lib/apt/lists/*
           EOF
+          docker run --rm -v "$RUNNER_TEMP:/work" lmms-native sh -c 'ldconfig -p | grep libfluidsynth.so.3; cd /work; LD_LIBRARY_PATH=/work/squashfs-root/usr/lib:/work/squashfs-root/usr/lib/lmms ldd squashfs-root/usr/lib/lmms/libsf2player.so | grep -i fluidsynth || true'
           cat > native-render.sh <<'EOF'
           #!/bin/sh
           # In the container: native-render.sh <project> <out.wav>
