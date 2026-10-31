@@ -22,12 +22,14 @@
 #include <QFileInfo>
 #include <QString>
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 
 #include "ConfigManager.h"
+#include "DrumSynth.h"
 #include "Engine.h"
 #include "Hardware.h"
 #include "NotePlayHandle.h"
@@ -44,6 +46,10 @@
 #else
 #define LMMS_WEB_EXPORT extern "C"
 #endif
+
+// ZynAddSubFX's random numbers (prng_state, in its Misc/Util.cpp; a new process starts them at 0x1234), weakly: a build
+// without ZynAddSubFX links too
+extern std::uint32_t prng_state __attribute__((weak));
 
 using namespace lmms;
 
@@ -144,6 +150,10 @@ LMMS_WEB_EXPORT int lmms_render(const char* projectPath, const char* outputPath,
 	// whatever this module rendered before (from 1 itself, every instrument drifted from LMMS's own renders)
 	fastRandSeed(s_randAfterStart);
 	std::srand(1);
+	// and what instruments keep from one sound to the next, as a new process has it: DrumSynth's working state, ZynAddSubFX's
+	// random numbers (a second render in one module made different drums and pads than the first, which matches LMMS's own)
+	DrumSynth::resetState();
+	if (&prng_state) { prng_state = 0x1234; }
 
 	std::printf("Loading project...\n");
 	Song* song = Engine::getSong();

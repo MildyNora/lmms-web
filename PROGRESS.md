@@ -44,6 +44,8 @@ LMMS v1.3.0-alpha.2 for WebAssembly, built by GitHub Actions. Newest first withi
   Each render starts LMMS's random numbers where they stand once the engine is up (patches/0010, `fastRandSeed`), as a fresh
   process renders: DrumSynth's noise and many oscillators' random phases come from them. Without that, a second render in one
   module differed from the first by -10 dB; starting them from 1 instead made every instrument drift from LMMS's own renders.
+  DrumSynth's working state and ZynAddSubFX's random numbers go back to a new process's too (patches/0011): DrumSynth keeps
+  envelopes, filters and phases in globals that carried over from one render's sounds into the next.
 
 ## Runs
 

@@ -1,0 +1,51 @@
+lmms-web: DrumSynth::resetState(), for the web build to call before each render: DrumSynth keeps its working
+state in file-level globals (envelopes, filter and phase arrays), which a fresh process starts at zero and which carry
+over from one sound to the next, so a second render in one module made different drum sounds than the first.
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/include/DrumSynth.h b/include/DrumSynth.h
+index 3281ddd..848beca 100644
+--- a/include/DrumSynth.h
++++ b/include/DrumSynth.h
+@@ -40,6 +40,11 @@ class DrumSynth
+ public:
+ 	DrumSynth() = default;
+ 	int GetDSFileSamples(QString dsfile, int16_t*& wave, int channels, sample_rate_t Fs);
++#ifdef LMMS_BUILD_WEB
++	//! The state DrumSynth keeps between sounds (its file-level globals) back to what a fresh process starts with: the web
++	//! build does before each render, so a render in a module that has rendered before makes the same sounds as a new process
++	static void resetState();
++#endif
+ 
+ private:
+ 	float LoudestEnv();
+diff --git a/src/core/DrumSynth.cpp b/src/core/DrumSynth.cpp
+index 6f8afc7..d3087fb 100644
+--- a/src/core/DrumSynth.cpp
++++ b/src/core/DrumSynth.cpp
+@@ -62,6 +62,24 @@ float phi[1200];
+ long wavewords, wavemode = 0;
+ float mem_t = 1.0f, mem_o = 1.0f, mem_n = 1.0f, mem_b = 1.0f, mem_tune = 1.0f, mem_time = 1.0f;
+ 
++#ifdef LMMS_BUILD_WEB
++void DrumSynth::resetState()
++{
++	std::memset(envpts, 0, sizeof(envpts));
++	std::memset(envData, 0, sizeof(envData));
++	std::memset(chkOn, 0, sizeof(chkOn));
++	std::memset(sliLev, 0, sizeof(sliLev));
++	timestretch = 0.f;
++	std::memset(DD, 0, sizeof(DD));
++	clippoint = 0;
++	std::memset(DF, 0, sizeof(DF));
++	std::memset(phi, 0, sizeof(phi));
++	wavewords = 0;
++	wavemode = 0;
++	mem_t = mem_o = mem_n = mem_b = mem_tune = mem_time = 1.0f;
++}
++#endif
++
+ int DrumSynth::LongestEnv()
+ {
+ 	float l = 0.f;
