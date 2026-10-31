@@ -1,6 +1,7 @@
 // One module, several renders: a page keeps the module loaded and renders song after song in it, so a render must not depend on
-// what was rendered before. Renders project A, then B, then A again in the same module and checks the two renders of A are the
-// same sample for sample (and that B's wasn't A's).
+// what was rendered before. Renders project A, then B, then A and B again in the same module: A's two renders must be the same
+// sample for sample (and B's not A's). B's two renders are compared for the record, second by second: instruments with random
+// numbers of their own (ZynAddSubFX's, Organic's phases, Vibed's strings) differ from render to render, as they do natively.
 //
 //   node tests/twice.mjs <lmms.js> <a.mmp> <b.mmp> [<file to include>...]   (files as in render.mjs: <file> or <file>=<path>)
 
@@ -58,9 +59,10 @@ function differ(a, b) {
 	}
 	return { first_frame: first < 0 ? null : Math.floor(first / 2), max_abs: Number(most.toPrecision(3)), null_db: r > 0 ? Number((10 * Math.log10(d / r || 1e-30)).toFixed(1)) : null, per_second_db: perSecond };
 }
-const r1 = render(a, 1), r2 = render(b, 2), r3 = render(a, 3);
+const r1 = render(a, 1), r2 = render(b, 2), r3 = render(a, 3), r4 = render(b, 4);
 const strip = ({ wav, ...r }) => r;
 console.log(JSON.stringify({ first: strip(r1), other: strip(r2), again: strip(r3) }));
+console.log(`B rendered twice: ${r2.sha === r4.sha ? "the same" : JSON.stringify(differ(r2.wav, r4.wav))}`);
 if (r1.sha !== r3.sha) { console.error(`FAIL: the same project rendered differently the second time: ${JSON.stringify(differ(r1.wav, r3.wav))}`); process.exit(1); }
 if (r1.sha === r2.sha) { console.error("FAIL: two different projects rendered the same"); process.exit(1); }
 console.log("OK");

@@ -303,8 +303,8 @@ jobs:
             "$seconds" "${files[@]}" | tee "$RUNNER_TEMP/render-instruments.txt"
           echo "Instruments (web): \`$(grep '^{' "$RUNNER_TEMP/render-instruments.txt")\`" >> "$GITHUB_STEP_SUMMARY"
 
-      # A page keeps the module and renders song after song in it: every instrument (DrumSynth's noise among them), then Musical's
-      # test project, then every instrument again, must give the same instruments twice
+      # A page keeps the module and renders song after song in it: Musical's test project before and after every instrument must be
+      # the same sample for sample (what instruments with random numbers of their own do from render to render is reported)
       - name: Several renders in one module (a page keeps it loaded)
         timeout-minutes: 20
         run: |
@@ -312,8 +312,8 @@ jobs:
           S="$RUNNER_TEMP/squashfs-root/usr/share/lmms/samples"
           files=("$RUNNER_TEMP/sf-subset.sf3=/sf/MuseScore_General.sf3" tests/assets/clip1.flac tests/assets/clip2.flac)
           for f in $(python3 -c 'import json; print(" ".join(json.load(open("tests/instruments.json"))["samples"]))'); do files+=("$S/$f=/lmms/data/samples/$f"); done
-          timeout 900 node tests/twice.mjs "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/instruments-web.mmp" "$RUNNER_TEMP/musical.mmp" "${files[@]}" | tee "$RUNNER_TEMP/twice.txt"
-          echo "Several renders in one module: \`$(grep '^{' "$RUNNER_TEMP/twice.txt")\`" >> "$GITHUB_STEP_SUMMARY"
+          timeout 900 node tests/twice.mjs "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/musical.mmp" "$RUNNER_TEMP/instruments-web.mmp" "${files[@]}" | tee "$RUNNER_TEMP/twice.txt"
+          { echo "Several renders in one module: \`$(grep '^{' "$RUNNER_TEMP/twice.txt")\`"; echo; echo "$(grep '^B rendered twice' "$RUNNER_TEMP/twice.txt" | cut -c1-600)"; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Instruments: native"
         if: always() && steps.reference.outcome == 'success'
