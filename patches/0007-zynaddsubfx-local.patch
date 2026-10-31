@@ -271,20 +271,23 @@ index 5f33833..c2968ac 100644
  }
  
 diff --git a/plugins/ZynAddSubFx/ZynAddSubFx.h b/plugins/ZynAddSubFx/ZynAddSubFx.h
-index a35bc8f..47097dd 100644
+index a35bc8f..f6c4ff9 100644
 --- a/plugins/ZynAddSubFx/ZynAddSubFx.h
 +++ b/plugins/ZynAddSubFx/ZynAddSubFx.h
-@@ -33,7 +33,9 @@
+@@ -33,7 +33,12 @@
  #include "AutomatableModel.h"
  #include "Instrument.h"
  #include "InstrumentView.h"
 +#ifndef LMMS_BUILD_WEB
  #include "RemotePlugin.h"
++#else
++#include <string>
++#include <QString>
 +#endif
  
  class QPushButton;
  
-@@ -51,6 +53,7 @@ class LedCheckBox;
+@@ -51,6 +56,7 @@ class LedCheckBox;
  class ZynAddSubFxView;
  }
  
@@ -292,7 +295,7 @@ index a35bc8f..47097dd 100644
  class ZynAddSubFxRemotePlugin : public RemotePlugin
  {
  	Q_OBJECT
-@@ -64,6 +67,11 @@ signals:
+@@ -64,6 +70,17 @@ signals:
  	void clickedCloseButton();
  
  } ;
@@ -300,6 +303,12 @@ index a35bc8f..47097dd 100644
 +// The web build has no remote plugins (a page can't start another process): ZynAddSubFX
 +// always runs in this process, without its own window, so m_remotePlugin stays null
 +class ZynAddSubFxRemotePlugin;
++
++//! As RemotePlugin.h has it (the web build leaves that header out)
++inline std::string QSTR_TO_STDSTR(QString const& qstr)
++{
++	return qstr.toStdString();
++}
 +#endif
  
  

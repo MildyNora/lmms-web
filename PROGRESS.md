@@ -11,7 +11,8 @@ LMMS v1.3.0-alpha.2 for WebAssembly, built by GitHub Actions. Newest first withi
 | M3 | Compile and link for the web (static plugins with a compiled-in registry, no threads, headless entry point) | done: LMMS's core, its GUI code and 10 plugins compile and link into `lmms.js` + `lmms.wasm` |
 | M4 | It renders: a TripleOscillator project under Node, checked | done: 6.0 s of audio in 100 ms (module ready in 89 ms, engine up in 312 ms) |
 | M5 | Sample tracks and Musical's effects (native and LADSPA), a project shaped like Musical's | in progress: FLAC/Ogg/Vorbis/Opus for libsndfile, LadspaEffect with CMT, CAPS, Calf, TAP's echo and SWH's amplifier, decimator and limiter linked in, tests/musical.mmp rendered on the web and by native LMMS and compared |
-| M6 | Sf2Player (FluidSynth), ZynAddSubFX, the other instruments; plugins loaded separately | not started |
+| M6 | Every instrument Musical's projects use: Sf2Player (FluidSynth), ZynAddSubFX, BitInvader, FreeBoy, LB302, Monstro, Nescaline, OpulenZ, Organic, SID, Vibed, Watsyn, Xpressive | in progress: FluidSynth 2.6.1 and zlib 1.3.1 built, ZynAddSubFX in LMMS's own process (patches/0007), Xpressive without exception catching (patches/0008), tests/instruments.mmp compared with native one instrument at a time |
+| M7 | A page's engine: several renders in one loaded module, the soundfont cut into per-preset downloads (tools/sf-subset.py), releases a page pins | in progress |
 
 ## Where things stand
 
@@ -32,6 +33,14 @@ LMMS v1.3.0-alpha.2 for WebAssembly, built by GitHub Actions. Newest first withi
   compressor, delay, EQ, stereo matrix, waveshaper; LADSPA: CMT, CAPS, Calf, TAP's stereo echo, SWH's decimator and limiter).
   CI renders it on the web and with LMMS's own release (the Linux AppImage, checksum-verified) and nulls the two
   (`tests/compare.mjs`).
+
+- **Instruments (M6)**: `tests/instruments.mmp` was written by Musical's engine: twenty tracks, each instrument in turn for two
+  bars (LMMS presets at Musical's levels, two ZynAddSubFX bank instruments, one of them PADsynth, three soundfont presets on
+  Sf2Player, an LMMS sample and a DrumSynth sound on AudioFileProcessor, FreeBoy at its defaults). The web render gets the
+  soundfont cut to its three presets by `tools/sf-subset.py`, which copies presets as they are: FluidSynth renders a cut
+  soundfont bit for bit as the whole one. The reference runs in a Debian bookworm container as Musical's server runs LMMS.
+- **Pages (M7)**: `tests/twice.mjs` renders A, B, then A again in one module (a page keeps it loaded); a version tag publishes the
+  tested `lmms.js` and `lmms.wasm` as a release with `SHA256SUMS`.
 
 ## Runs
 
