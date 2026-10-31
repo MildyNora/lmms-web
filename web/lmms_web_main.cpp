@@ -56,6 +56,9 @@ char* s_argv[] = {s_arg0, nullptr};
 
 bool s_engineUp = false;
 
+//! fastRand()'s state once the engine is up: where a fresh process's renders draw from (see lmms_render)
+unsigned long s_randAfterStart = 1;
+
 //! Milliseconds since the module started, for the progress lines
 double now()
 {
@@ -90,6 +93,7 @@ void startEngine()
 		[](const QString& what) { progress(what.toUtf8().constData()); });
 	Engine::init(true);
 	progress("Engine up");
+	s_randAfterStart = lmms::detail::fastRandNext;
 	s_engineUp = true;
 }
 
@@ -135,9 +139,10 @@ LMMS_WEB_EXPORT int lmms_render(const char* projectPath, const char* outputPath,
 
 	startEngine();
 
-	// Every render as from a fresh start: the random numbers LMMS's instruments draw (DrumSynth's noise, among others)
-	// begin where a new process's do, whatever this module rendered before
-	fastRandSeed(1);
+	// Every render as from a fresh start: the random numbers LMMS's instruments draw (DrumSynth's noise, oscillators'
+	// random phases) begin where they stand once a new process's engine is up, as LMMS's own command line renders from,
+	// whatever this module rendered before (from 1 itself, every instrument drifted from LMMS's own renders)
+	fastRandSeed(s_randAfterStart);
 	std::srand(1);
 
 	std::printf("Loading project...\n");
