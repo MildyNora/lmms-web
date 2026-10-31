@@ -202,6 +202,7 @@ jobs:
       # with its own libraries, FluidSynth and libsndfile from the system. The web build is right when the two renders null.
       # Its samples also serve the web renders (LMMS's samples aren't in the module: a page fetches the ones a song uses).
       - name: LMMS's release, for reference
+        id: reference
         timeout-minutes: 15
         run: |
           cd "$RUNNER_TEMP"
@@ -300,7 +301,7 @@ jobs:
           echo "Instruments (web): \`$(grep '^{' "$RUNNER_TEMP/render-instruments.txt")\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Instruments: native"
-        if: always()
+        if: always() && steps.reference.outcome == 'success'
         timeout-minutes: 20
         run: |
           sed -e "s|@SOUNDFONT@|/work/MuseScore_General.sf3|g" -e "s|@SAMPLES@|/work/squashfs-root/usr/share/lmms/samples|g" \

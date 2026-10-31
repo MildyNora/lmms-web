@@ -154,9 +154,10 @@ fetch https://github.com/FluidSynth/fluidsynth/archive/refs/tags/v2.6.1.tar.gz \
 	3d258a3bf97cc20c59eeebfe62c2432fae88adda74d3ad098681c76e0ebf446b
 # A thread asking for real-time priority (pthread_setschedparam, which Emscripten has only with
 # threads) just doesn't get it: this build never starts one
-sed -i 's|^#include "fluid_sys.h"$|&\n#ifdef __EMSCRIPTEN__\n#define pthread_setschedparam(thread, policy, param) (-1)\n#endif|' \
+sed -i -e 's|^#include "fluid_sys.h"$|&\n#ifdef __EMSCRIPTEN__\n#define FLUID_WEB_SETSCHEDPARAM(thread, policy, param) (-1)\n#else\n#define FLUID_WEB_SETSCHEDPARAM pthread_setschedparam\n#endif|' \
+	-e 's|if(pthread_setschedparam(pthread_self(), SCHED_FIFO, &priority) == 0)|if(FLUID_WEB_SETSCHEDPARAM(pthread_self(), SCHED_FIFO, \&priority) == 0)|' \
 	"$WORK/fluidsynth-2.6.1/src/utils/fluid_sys.c"
-grep -q "define pthread_setschedparam" "$WORK/fluidsynth-2.6.1/src/utils/fluid_sys.c"
+[ "$(grep -c FLUID_WEB_SETSCHEDPARAM "$WORK/fluidsynth-2.6.1/src/utils/fluid_sys.c")" = 3 ]
 # (its command-line program links libsndfile, whose codecs its CMake files don't name)
 cmake_lib "$WORK/fluidsynth-2.6.1" fluidsynth \
 	-DCMAKE_EXE_LINKER_FLAGS="-L$PREFIX/lib -lvorbisenc -lvorbis -logg -lFLAC -lopus" \
