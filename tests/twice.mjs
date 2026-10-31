@@ -31,8 +31,18 @@ const render = (project, n) => {
 	const rc = lmms.ccall("lmms_render", "number", ["string", "string", "number", "number"], [at, `/work/out${n}.wav`, 44100, 1]);
 	if (rc !== 0) { console.error(`FAIL: render ${n} returned ${rc}`); process.exit(1); }
 	const wav = lmms.FS.readFile(`/work/out${n}.wav`);
-	return { ms: Math.round(performance.now() - t0), bytes: wav.length, sha: createHash("sha256").update(wav).digest("hex"), wav };
+	// the samples, not the file: libsndfile stamps a float WAV's PEAK chunk with the time it was written
+	return { ms: Math.round(performance.now() - t0), bytes: wav.length, sha: createHash("sha256").update(audio(wav)).digest("hex"), wav };
 };
+function audio(w) {
+	const v = new DataView(w.buffer, w.byteOffset, w.byteLength);
+	for (let at = 12; at + 8 <= w.length;) {
+		const id = String.fromCharCode(...w.subarray(at, at + 4)), n = v.getUint32(at + 4, true);
+		if (id === "data") return w.subarray(at + 8, at + 8 + n);
+		at += 8 + n + (n & 1);
+	}
+	return w;
+}
 // where two float renders differ: the first frame that does, the largest difference, and how deep they null in all and second by second
 function differ(a, b) {
 	const data = (w) => { const v = new DataView(w.buffer, w.byteOffset, w.byteLength); let at = 12; while (at + 8 <= w.length) { const id = String.fromCharCode(...w.subarray(at, at + 4)), n = v.getUint32(at + 4, true); if (id === "data") return new Float32Array(w.buffer.slice(w.byteOffset + at + 8, w.byteOffset + at + 8 + n)); at += 8 + n + (n & 1); } return new Float32Array(0); };

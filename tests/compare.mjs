@@ -56,12 +56,15 @@ for (let k = -64; k <= 64; k++) {
 	if (e < best) { best = e; lag = k; }
 }
 const db = (x) => (x > 0 ? 20 * Math.log10(x) : -Infinity);
+const QUIET = 1e-5;   // a stretch of the native render under -100 dB RMS: too quiet to say how alike they are (any difference is huge beside it)
 function nullDb(from, to) {
 	let d = 0, ref = 0;
 	for (let i = Math.max(from, 64); i < Math.min(to, n - 64); i++) {
 		for (const [x, y] of [[a.l, b.l], [a.r, b.r]]) { const e = x[i] - y[i + lag]; d += e * e; ref += x[i] * x[i]; }
 	}
-	return ref > 0 ? Number(db(Math.sqrt(d / ref)).toFixed(1)) : null;
+	const frames = Math.max(1, Math.min(to, n - 64) - Math.max(from, 64));
+	if (ref <= 0 || Math.sqrt(ref / (2 * frames)) < QUIET) return null;
+	return Number(db(Math.sqrt(d / ref)).toFixed(1));
 }
 const overall = nullDb(0, n);
 const perSecond = [];
@@ -74,9 +77,9 @@ const summary = { native_seconds: Number(seconds(a).toFixed(3)), web_seconds: Nu
 console.log(JSON.stringify(summary));
 if (perSegment) {
 	console.log("| part | null (dB) | native level (dB) | web level (dB) |\n| --- | --- | --- | --- |");
-	for (const s of perSegment) console.log(`| ${s.name} | ${s.null_db ?? "silent"} | ${s.native_rms_db} | ${s.web_rms_db} |`);
+	for (const s of perSegment) console.log(`| ${s.name} | ${s.null_db ?? "quiet"} | ${s.native_rms_db} | ${s.web_rms_db} |`);
 } else {
-	console.log(`| second | ${perSecond.map((_, i) => i + 1).join(" | ")} |\n| --- | ${perSecond.map(() => "---").join(" | ")} |\n| null (dB) | ${perSecond.map((v) => (v == null ? "silent" : v)).join(" | ")} |`);
+	console.log(`| second | ${perSecond.map((_, i) => i + 1).join(" | ")} |\n| --- | ${perSecond.map(() => "---").join(" | ")} |\n| null (dB) | ${perSecond.map((v) => (v == null ? "quiet" : v)).join(" | ")} |`);
 }
 if (limitArg !== undefined && overall != null && overall > Number(limitArg)) fail(`the renders differ: null ${overall} dB, above ${limitArg} dB`);
 console.log("OK");

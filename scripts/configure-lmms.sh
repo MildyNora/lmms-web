@@ -16,11 +16,13 @@ shift 2
 : "${QT_WASM:?}" "${QT_HOST:?}" "${DEPS:?}"
 
 # Every instrument Musical's projects use (LMMS's presets, ZynAddSubFX's banks, the General MIDI soundfont on Sf2Player,
-# samples and DrumSynth sounds on AudioFileProcessor) and every effect
-PLUGINS=${PLUGINS:-"TripleOscillator AudioFileProcessor Kicker BitInvader FreeBoy Lb302 Monstro Nes OpulenZ Organic Sf2Player Sid Vibed Watsyn Xpressive ZynAddSubFx Amplifier Compressor Delay Eq Flanger StereoMatrix WaveShaper LadspaEffect"}
-# The LADSPA libraries Musical's projects use (its effects: CMT's filters, delays and reverb, CAPS's chorus, Calf's phaser and
-# filter, TAP's stereo echo, SWH's amplifier, decimator and limiter); the others come later as plugins loaded on their own
-LADSPA=${LADSPA:-"cmt caps veal tap_echo amp_1181 decimator_1202 fast_lookahead_limiter_1913"}
+# samples and DrumSynth sounds on AudioFileProcessor), every effect Musical maps to LMMS and every effect LMMS's presets carry
+# (DualFilter, StereoEnhancer and BassBooster among them), and LMMS's other everyday effects
+PLUGINS=${PLUGINS:-"TripleOscillator AudioFileProcessor Kicker BitInvader FreeBoy Lb302 Monstro Nes OpulenZ Organic Sf2Player Sid Vibed Watsyn Xpressive ZynAddSubFx Amplifier BassBooster Bitcrush Compressor CrossoverEQ Delay DualFilter DynamicsProcessor Eq Flanger MultitapEcho PeakControllerEffect ReverbSC StereoEnhancer StereoMatrix WaveShaper LadspaEffect"}
+# The LADSPA libraries Musical's projects use: its effects (CMT's filters, delays and reverb, CAPS's chorus, Calf's phaser and
+# filter, TAP's stereo echo, SWH's amplifier, decimator and limiter) and those LMMS's presets carry (SWH's DC remover, hard limiter
+# and harmonic generator, TAP's chorus/flanger, autopan and de-esser); the others come later as plugins loaded on their own
+LADSPA=${LADSPA:-"cmt caps veal tap_echo tap_chorusflanger tap_autopan tap_deesser amp_1181 decimator_1202 fast_lookahead_limiter_1913 dc_remove_1207 hard_limiter_1413 harmonic_gen_1220"}
 
 # Only the cross-compiled libraries' pkg-config files, never the host's
 export PKG_CONFIG_LIBDIR="$DEPS/lib/pkgconfig"

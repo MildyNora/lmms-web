@@ -260,7 +260,6 @@ jobs:
 
       - name: Several renders in one module (a page keeps it loaded)
         timeout-minutes: 15
-        continue-on-error: true   # (being looked into: where a second render differs; the comparisons below still run)
         run: |
           set -o pipefail
           sed "s|@ASSETS@|$GITHUB_WORKSPACE/tests/assets|g" tests/musical.mmp > "$RUNNER_TEMP/musical.mmp"
