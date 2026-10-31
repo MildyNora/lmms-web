@@ -5,7 +5,7 @@ separate process (RemoteZynAddSubFx, the remote plugin), which a web page can't 
 Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
 
 diff --git a/plugins/ZynAddSubFx/CMakeLists.txt b/plugins/ZynAddSubFx/CMakeLists.txt
-index 6e92938..e33c48b 100644
+index 6e92938..69214ba 100644
 --- a/plugins/ZynAddSubFx/CMakeLists.txt
 +++ b/plugins/ZynAddSubFx/CMakeLists.txt
 @@ -1,4 +1,6 @@
@@ -72,6 +72,15 @@ index 6e92938..e33c48b 100644
  
  add_library(ZynAddSubFxCore STATIC
  	LocalZynAddSubFx.cpp
+@@ -138,7 +148,7 @@ target_link_libraries(ZynAddSubFxCore INTERFACE
+ )
+ 
+ LINK_DIRECTORIES("${CMAKE_CURRENT_BINARY_DIR}/..")
+-IF(LMMS_BUILD_LINUX)
++IF(LMMS_BUILD_LINUX AND NOT LMMS_BUILD_WEB)   # (no shared libraries on the web, and wasm-ld has no such flag)
+ 	LINK_LIBRARIES(-Wl,--enable-new-dtags)
+ 	SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+ 	SET(CMAKE_INSTALL_RPATH "$ORIGIN")
 @@ -163,6 +173,10 @@ endif()
  # Use libraries in non-standard directories (e.g., another version of Qt)
  SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
