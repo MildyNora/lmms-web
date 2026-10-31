@@ -44,6 +44,7 @@ configure_file(static_registry.cpp.in "${CMAKE_CURRENT_BINARY_DIR}/static_regist
 
 add_executable(lmms_web
 	lmms_web_main.cpp
+	web_stubs.c
 	"${CMAKE_CURRENT_BINARY_DIR}/static_registry.cpp"
 )
 target_include_directories(lmms_web PRIVATE
