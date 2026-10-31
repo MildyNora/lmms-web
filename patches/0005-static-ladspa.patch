@@ -148,10 +148,10 @@ index 8358174..e91b0e4 100644
  
  ADD_DEFINITIONS(-DFFTW3)
 diff --git a/plugins/LadspaEffect/tap/CMakeLists.txt b/plugins/LadspaEffect/tap/CMakeLists.txt
-index 93b54ae..b5c2b50 100644
+index 93b54ae..16cc94e 100644
 --- a/plugins/LadspaEffect/tap/CMakeLists.txt
 +++ b/plugins/LadspaEffect/tap/CMakeLists.txt
-@@ -10,7 +10,12 @@ else()
+@@ -10,7 +10,16 @@ else()
  endif()
  FOREACH(_item ${PLUGIN_SOURCES})
  	GET_FILENAME_COMPONENT(_plugin "${_item}" NAME_WE)
@@ -159,13 +159,17 @@ index 93b54ae..b5c2b50 100644
 +	ADD_LIBRARY("${_plugin}" ${LADSPA_LIBRARY_TYPE} "${_item}")
 +	LADSPA_LIBRARY_FOR_WEB("${_plugin}")
 +	IF(LMMS_BUILD_WEB)
-+		# Linked together, so each plugin's own init and fini functions need their own names
-+		TARGET_COMPILE_DEFINITIONS("${_plugin}" PRIVATE "tap_init=${_plugin}_init" "tap_fini=${_plugin}_fini")
++		# Linked together, so the names each plugin keeps to itself only as a shared library (its init and fini, its
++		# descriptors and its tables) are its own here
++		TARGET_COMPILE_DEFINITIONS("${_plugin}" PRIVATE "tap_init=${_plugin}_init" "tap_fini=${_plugin}_fini"
++			"mono_descriptor=${_plugin}_mono_descriptor" "stereo_descriptor=${_plugin}_stereo_descriptor"
++			"delete_descriptor=${_plugin}_delete_descriptor" "cos_table=${_plugin}_cos_table" "log10_table=${_plugin}_log10_table"
++			"set_run_adding_gain=${_plugin}_set_run_adding_gain")
 +	ENDIF()
  	if(MSVC)
  		target_link_options("${_plugin}" PRIVATE "/EXPORT:ladspa_descriptor")
  	endif()
-@@ -18,7 +23,9 @@ FOREACH(_item ${PLUGIN_SOURCES})
+@@ -18,7 +27,9 @@ FOREACH(_item ${PLUGIN_SOURCES})
  	IF("${_plugin}" MATCHES "tap_pinknoise")
  		TARGET_COMPILE_DEFINITIONS("${_plugin}" PRIVATE TAP_DISABLE_SRAND=1)
  	ENDIF()
