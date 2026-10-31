@@ -2,7 +2,11 @@
 //
 //   node tests/render.mjs <lmms.js> <project.mmp> <out.wav> <expected seconds> [<file to include>...]
 //
-// The project (and any files it uses, put at the same path in the module's file system)
+// A file to include goes at the same absolute path in the module's file system, or, given as
+// <file>=<path>, at that path (a soundfont cut down to the presets a project uses, LMMS's
+// samples where the module's LMMS looks for them, /lmms/data/samples/...).
+//
+// The project (and the files it uses)
 // goes into Emscripten's in-memory file system, lmms_render() turns it into a float WAV
 // there, and the WAV is copied out and checked: RIFF/WAVE, stereo float at 44.1 kHz,
 // about the expected length, finite samples, not silent. Prints the timings as JSON.
@@ -47,10 +51,10 @@ console.log(`LMMS ${lmms.ccall("lmms_version", "string", [], [])} (web) ready in
 const project = `/work/${projectPath.split("/").pop()}`;
 mkdirs(lmms.FS, "/work");
 lmms.FS.writeFile(project, readFileSync(projectPath));
-for (const file of extraFiles) {
-	const at = resolve(file);
-	mkdirs(lmms.FS, dirname(at));
-	lmms.FS.writeFile(at, readFileSync(file));
+for (const arg of extraFiles) {
+	const [file, to] = arg.includes("=") ? arg.split("=", 2) : [arg, resolve(arg)];
+	mkdirs(lmms.FS, dirname(to));
+	lmms.FS.writeFile(to, readFileSync(file));
 }
 
 const tInit = performance.now();

@@ -152,7 +152,14 @@ echo "::group::FluidSynth"
 # GCEM, a header library it needs, is downloaded by its own CMake module and checked there.
 fetch https://github.com/FluidSynth/fluidsynth/archive/refs/tags/v2.6.1.tar.gz \
 	3d258a3bf97cc20c59eeebfe62c2432fae88adda74d3ad098681c76e0ebf446b
+# A thread asking for real-time priority (pthread_setschedparam, which Emscripten has only with
+# threads) just doesn't get it: this build never starts one
+sed -i 's|^#include "fluid_sys.h"$|&\n#ifdef __EMSCRIPTEN__\n#define pthread_setschedparam(thread, policy, param) (-1)\n#endif|' \
+	"$WORK/fluidsynth-2.6.1/src/utils/fluid_sys.c"
+grep -q "define pthread_setschedparam" "$WORK/fluidsynth-2.6.1/src/utils/fluid_sys.c"
+# (its command-line program links libsndfile, whose codecs its CMake files don't name)
 cmake_lib "$WORK/fluidsynth-2.6.1" fluidsynth \
+	-DCMAKE_EXE_LINKER_FLAGS="-L$PREFIX/lib -lvorbisenc -lvorbis -logg -lFLAC -lopus" \
 	-Dosal=cpp11 \
 	-Denable-threads=OFF \
 	-Denable-openmp=OFF \

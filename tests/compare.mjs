@@ -2,14 +2,18 @@
 // them (if any, within 64 samples), and how deep the difference nulls, overall and second by second (0 dB: nothing alike;
 // below about -60 dB: the same sound for any ear; native against native nulls completely).
 //
-//   node tests/compare.mjs <native.wav> <web.wav> [<fail above dB>]
+//   node tests/compare.mjs <native.wav> <web.wav> [<fail above dB>] [--segments <file.json>]
 //
-// Prints a JSON summary and a table for the job summary. Fails only when a file isn't a stereo float WAV, either render is
+// --segments names stretches of the song ({"segments": [{"name", "from_s", "to_s"}]}, an instrument each in
+// tests/instruments.json), and the table is then one row per stretch. Prints a JSON summary and a table for the job summary. Fails only when a file isn't a stereo float WAV, either render is
 // silent, the lengths differ by more than a quarter of a second, or (when given) the overall null is above the limit.
 
 import { readFileSync } from "node:fs";
 
-const [nativePath, webPath, limitArg] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const segAt = args.indexOf("--segments");
+const segments = segAt >= 0 ? JSON.parse(readFileSync(args.splice(segAt, 2)[1], "utf8")).segments : null;
+const [nativePath, webPath, limitArg] = args;
 if (!nativePath || !webPath) { console.error("usage: node tests/compare.mjs <native.wav> <web.wav> [<fail above dB>]"); process.exit(2); }
 const fail = (m) => { console.error(`FAIL: ${m}`); process.exit(1); };
 
@@ -62,8 +66,17 @@ function nullDb(from, to) {
 const overall = nullDb(0, n);
 const perSecond = [];
 for (let s = 0; s < n; s += a.rate) perSecond.push(nullDb(s, Math.min(n, s + a.rate)));
-const summary = { native_seconds: Number(seconds(a).toFixed(3)), web_seconds: Number(seconds(b).toFixed(3)), lag_samples: lag, null_db: overall, per_second_db: perSecond };
+const perSegment = segments && segments.map((s) => ({ name: s.name, null_db: nullDb(Math.round(s.from_s * a.rate), Math.round(s.to_s * a.rate)),
+	native_rms_db: Number(db(rms(a.l, Math.round(s.from_s * a.rate), Math.min(n, Math.round(s.to_s * a.rate)))).toFixed(1)),
+	web_rms_db: Number(db(rms(b.l, Math.round(s.from_s * a.rate), Math.min(n, Math.round(s.to_s * a.rate)))).toFixed(1)) }));
+const summary = { native_seconds: Number(seconds(a).toFixed(3)), web_seconds: Number(seconds(b).toFixed(3)), lag_samples: lag, null_db: overall,
+	...(perSegment ? { per_segment: perSegment } : { per_second_db: perSecond }) };
 console.log(JSON.stringify(summary));
-console.log(`| second | ${perSecond.map((_, i) => i + 1).join(" | ")} |\n| --- | ${perSecond.map(() => "---").join(" | ")} |\n| null (dB) | ${perSecond.map((v) => (v == null ? "silent" : v)).join(" | ")} |`);
+if (perSegment) {
+	console.log("| part | null (dB) | native level (dB) | web level (dB) |\n| --- | --- | --- | --- |");
+	for (const s of perSegment) console.log(`| ${s.name} | ${s.null_db ?? "silent"} | ${s.native_rms_db} | ${s.web_rms_db} |`);
+} else {
+	console.log(`| second | ${perSecond.map((_, i) => i + 1).join(" | ")} |\n| --- | ${perSecond.map(() => "---").join(" | ")} |\n| null (dB) | ${perSecond.map((v) => (v == null ? "silent" : v)).join(" | ")} |`);
+}
 if (limitArg !== undefined && overall != null && overall > Number(limitArg)) fail(`the renders differ: null ${overall} dB, above ${limitArg} dB`);
 console.log("OK");

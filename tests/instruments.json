@@ -1,0 +1,114 @@
+{
+ "segments": [
+  {
+   "name": "TripleOscillator",
+   "from_s": 0.0,
+   "to_s": 4.0
+  },
+  {
+   "name": "BitInvader",
+   "from_s": 4.0,
+   "to_s": 8.0
+  },
+  {
+   "name": "Kicker",
+   "from_s": 8.0,
+   "to_s": 12.0
+  },
+  {
+   "name": "LB302",
+   "from_s": 12.0,
+   "to_s": 16.0
+  },
+  {
+   "name": "Monstro",
+   "from_s": 16.0,
+   "to_s": 20.0
+  },
+  {
+   "name": "Nescaline",
+   "from_s": 20.0,
+   "to_s": 24.0
+  },
+  {
+   "name": "OpulenZ",
+   "from_s": 24.0,
+   "to_s": 28.0
+  },
+  {
+   "name": "Organic",
+   "from_s": 28.0,
+   "to_s": 32.0
+  },
+  {
+   "name": "SID",
+   "from_s": 32.0,
+   "to_s": 36.0
+  },
+  {
+   "name": "Vibed",
+   "from_s": 36.0,
+   "to_s": 40.0
+  },
+  {
+   "name": "Watsyn",
+   "from_s": 40.0,
+   "to_s": 44.0
+  },
+  {
+   "name": "Xpressive",
+   "from_s": 44.0,
+   "to_s": 48.0
+  },
+  {
+   "name": "ZynAddSubFX (ADsynth)",
+   "from_s": 48.0,
+   "to_s": 52.0
+  },
+  {
+   "name": "ZynAddSubFX (PADsynth)",
+   "from_s": 52.0,
+   "to_s": 56.0
+  },
+  {
+   "name": "FreeBoy",
+   "from_s": 56.0,
+   "to_s": 60.0
+  },
+  {
+   "name": "Sf2Player: Grand Piano",
+   "from_s": 60.0,
+   "to_s": 64.0
+  },
+  {
+   "name": "Sf2Player: Strings",
+   "from_s": 64.0,
+   "to_s": 68.0
+  },
+  {
+   "name": "Sf2Player: Standard kit",
+   "from_s": 68.0,
+   "to_s": 72.0
+  },
+  {
+   "name": "AudioFileProcessor: kick",
+   "from_s": 72.0,
+   "to_s": 76.0
+  },
+  {
+   "name": "AudioFileProcessor: DrumSynth",
+   "from_s": 76.0,
+   "to_s": 80.0
+  }
+ ],
+ "soundfont_presets": [
+  "0:0",
+  "0:48",
+  "128:0"
+ ],
+ "samples": [
+  "drums/bassdrum01.ogg",
+  "drumsynth/cr78/Conga.ds"
+ ],
+ "seconds": 82.0
+}

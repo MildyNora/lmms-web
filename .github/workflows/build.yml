@@ -109,7 +109,7 @@ jobs:
           path: ${{ runner.temp }}/deps
           key: deps-${{ env.EMSDK_VERSION }}-${{ hashFiles('scripts/build-deps.sh') }}
 
-      - name: Build libraries (libsamplerate, libsndfile, FFTW)
+      - name: Build libraries (libsamplerate, libsndfile with FLAC/Ogg/Vorbis/Opus, FFTW, zlib, FluidSynth)
         if: steps.deps.outputs.cache-hit != 'true'
         run: scripts/build-deps.sh "$DEPS"
 
@@ -198,7 +198,64 @@ jobs:
             "$GITHUB_WORKSPACE/tests/tripleoscillator.mmp" "$RUNNER_TEMP/prof/out.wav" 6.0 || true
           node --prof-process isolate-*.log 2>/dev/null | head -120 || true
 
-      - name: Render Musical's test project under Node (sample tracks, native and LADSPA effects)
+      # LMMS's own release is the reference, run as Musical's server runs it today: Debian bookworm, the AppImage's lmms binary
+      # with its own libraries, FluidSynth and libsndfile from the system. The web build is right when the two renders null.
+      # Its samples also serve the web renders (LMMS's samples aren't in the module: a page fetches the ones a song uses).
+      - name: LMMS's release, for reference
+        timeout-minutes: 15
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSL --retry 3 -o lmms.AppImage "https://github.com/LMMS/lmms/releases/download/$LMMS_TAG/lmms-1.3.0-alpha.2-linux-x86_64.AppImage"
+          echo "7580e832b9a10041ef632ebf2d70d588f41c31be8c6c80d1f9a96d1c0871298b  lmms.AppImage" | sha256sum -c -
+          chmod +x lmms.AppImage
+          ./lmms.AppImage --appimage-extract > /dev/null
+          mkdir -p lmms-home
+          sed "s|@HOME@|/work/lmms-home|" "$GITHUB_WORKSPACE/tests/native-lmmsrc.xml" > lmmsrc.xml
+          docker build -q -t lmms-native - <<'EOF'
+          FROM debian:bookworm-slim
+          RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends libfluidsynth3 libsamplerate0 libsndfile1 libgl1 \
+                libglib2.0-0 libfontconfig1 libfreetype6 libx11-6 libx11-xcb1 libxcb1 libxext6 libxrender1 libxkbcommon0 libasound2 \
+                libdbus-1-3 libharfbuzz0b libpng16-16 > /dev/null && rm -rf /var/lib/apt/lists/*
+          EOF
+          cat > native-render.sh <<'EOF'
+          #!/bin/sh
+          # In the container: native-render.sh <project> <out.wav>
+          set -eu
+          cd /work
+          LD_LIBRARY_PATH=/work/squashfs-root/usr/lib QT_QPA_PLATFORM=offscreen timeout 900 \
+            squashfs-root/usr/bin/lmms -c lmmsrc.xml render "$1" -o "$2" -f wav -a -s 44100 2>&1 | tail -20
+          ls -l "$2"
+          EOF
+          # anything LMMS or one of its plugins still misses in the container (the server's image has more, ffmpeg's among them)
+          docker run --rm -v "$RUNNER_TEMP:/work" lmms-native sh -c 'cd /work; for f in squashfs-root/usr/bin/lmms squashfs-root/usr/lib/lmms/*.so; do
+            LD_LIBRARY_PATH=/work/squashfs-root/usr/lib:/work/squashfs-root/usr/lib/lmms ldd "$f" | grep "not found" | sed "s|^|${f##*/}: |" || true; done'
+
+      - name: Restore the soundfont
+        id: soundfont
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/MuseScore_General.sf3
+          key: soundfont-5b85b6c2c61d10b2b91cddd41efcce7b25cd31c8271d511c73afafbef20b6fa3
+
+      # MuseScore General (MIT), the soundfont Musical plays General MIDI parts with; a web render gets only the presets a song
+      # uses, cut from it by tools/sf-subset.py (which copies them as they are)
+      - name: The General MIDI soundfont, and the presets the test uses cut from it
+        run: |
+          cd "$RUNNER_TEMP"
+          [ -f MuseScore_General.sf3 ] || curl -fsSL --retry 3 -o MuseScore_General.sf3 https://ftp.osuosl.org/pub/musescore/soundfont/MuseScore_General/MuseScore_General.sf3
+          echo "5b85b6c2c61d10b2b91cddd41efcce7b25cd31c8271d511c73afafbef20b6fa3  MuseScore_General.sf3" | sha256sum -c -
+          python3 "$GITHUB_WORKSPACE/tools/sf-subset.py" keep MuseScore_General.sf3 sf-subset.sf3 \
+            $(python3 -c 'import json; print(" ".join(json.load(open("'"$GITHUB_WORKSPACE"'/tests/instruments.json"))["soundfont_presets"]))')
+
+      - name: Save the soundfont
+        if: steps.soundfont.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/MuseScore_General.sf3
+          key: soundfont-5b85b6c2c61d10b2b91cddd41efcce7b25cd31c8271d511c73afafbef20b6fa3
+
+      # Musical's test project: two sample tracks through every effect Musical maps to LMMS, native and LADSPA
+      - name: "Musical's test project: web"
         timeout-minutes: 20
         run: |
           set -o pipefail
@@ -207,45 +264,61 @@ jobs:
             tests/assets/clip1.flac tests/assets/clip2.flac | tee "$RUNNER_TEMP/render-musical.txt"
           echo "Musical's test project (web): \`$(grep '^{' "$RUNNER_TEMP/render-musical.txt")\`" >> "$GITHUB_STEP_SUMMARY"
 
-      # The same project through LMMS's own release, run as Musical's server runs it today (Debian bookworm, the AppImage's
-      # lmms binary with its own libraries, FluidSynth and libsndfile from the system): the web build is right when the two null
-      - name: Native LMMS renders the same project
+      - name: "Musical's test project: native"
         timeout-minutes: 15
         run: |
-          set -o pipefail
-          cd "$RUNNER_TEMP"
-          curl -fsSL --retry 3 -o lmms.AppImage "https://github.com/LMMS/lmms/releases/download/$LMMS_TAG/lmms-1.3.0-alpha.2-linux-x86_64.AppImage"
-          echo "7580e832b9a10041ef632ebf2d70d588f41c31be8c6c80d1f9a96d1c0871298b  lmms.AppImage" | sha256sum -c -
-          chmod +x lmms.AppImage
-          ./lmms.AppImage --appimage-extract > /dev/null
-          mkdir -p lmms-home
-          sed "s|@HOME@|/work/lmms-home|" "$GITHUB_WORKSPACE/tests/native-lmmsrc.xml" > lmmsrc.xml
-          docker run --rm -v "$RUNNER_TEMP:/work" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" debian:bookworm-slim sh -euc '
-            apt-get update -qq
-            apt-get install -y -qq --no-install-recommends libfluidsynth3 libsamplerate0 libsndfile1 libgl1 libglib2.0-0 \
-              libfontconfig1 libfreetype6 libx11-6 libx11-xcb1 libxcb1 libxext6 libxrender1 libxkbcommon0 libasound2 libdbus-1-3 \
-              libharfbuzz0b libpng16-16 > /dev/null
-            cd /work
-            # (the server's image has more, ffmpeg's among them: anything else LMMS or its plugins still miss, named up front)
-            for f in squashfs-root/usr/bin/lmms squashfs-root/usr/lib/lmms/*.so; do
-              LD_LIBRARY_PATH=/work/squashfs-root/usr/lib:/work/squashfs-root/usr/lib/lmms ldd "$f" | grep "not found" | sed "s|^|${f##*/}: |" || true
-            done
-            LD_LIBRARY_PATH=/work/squashfs-root/usr/lib QT_QPA_PLATFORM=offscreen timeout 240 \
-              squashfs-root/usr/bin/lmms -c lmmsrc.xml render /work/musical.mmp -o musical-native.wav -f wav -a -s 44100 2>&1 | tail -20
-          '
-          ls -l musical-native.wav
+          docker run --rm -v "$RUNNER_TEMP:/work" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" lmms-native \
+            sh /work/native-render.sh /work/musical.mmp musical-native.wav
 
-      - name: The two renders, compared
+      - name: "Musical's test project: compared"
         run: |
           set -o pipefail
-          node tests/compare.mjs "$RUNNER_TEMP/musical-native.wav" "$RUNNER_TEMP/musical-web.wav" | tee "$RUNNER_TEMP/compare.txt"
+          node tests/compare.mjs "$RUNNER_TEMP/musical-native.wav" "$RUNNER_TEMP/musical-web.wav" | tee "$RUNNER_TEMP/compare-musical.txt"
           {
             echo
             echo "### Musical's test project: web against native LMMS"
             echo
-            echo "\`$(grep '^{' "$RUNNER_TEMP/compare.txt")\`"
+            echo "\`$(grep '^{' "$RUNNER_TEMP/compare-musical.txt")\`"
             echo
-            grep '^|' "$RUNNER_TEMP/compare.txt"
+            grep '^|' "$RUNNER_TEMP/compare-musical.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Every instrument Musical's projects use, one after another (tests/instruments.json says when each plays)
+      - name: "Instruments: web"
+        timeout-minutes: 30
+        run: |
+          set -o pipefail
+          S="$RUNNER_TEMP/squashfs-root/usr/share/lmms/samples"
+          sed -e "s|@SOUNDFONT@|/sf/MuseScore_General.sf3|g" -e "s|@SAMPLES@|/lmms/data/samples|g" tests/instruments.mmp > "$RUNNER_TEMP/instruments-web.mmp"
+          files=("$RUNNER_TEMP/sf-subset.sf3=/sf/MuseScore_General.sf3")
+          for f in $(python3 -c 'import json; print(" ".join(json.load(open("tests/instruments.json"))["samples"]))'); do
+            files+=("$S/$f=/lmms/data/samples/$f")
+          done
+          seconds=$(python3 -c 'import json; print(json.load(open("tests/instruments.json"))["seconds"])')
+          timeout 1500 node tests/render.mjs "$RUNNER_TEMP/build/web/lmms.js" "$RUNNER_TEMP/instruments-web.mmp" "$RUNNER_TEMP/instruments-web.wav" \
+            "$seconds" "${files[@]}" | tee "$RUNNER_TEMP/render-instruments.txt"
+          echo "Instruments (web): \`$(grep '^{' "$RUNNER_TEMP/render-instruments.txt")\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Instruments: native"
+        if: always()
+        timeout-minutes: 20
+        run: |
+          sed -e "s|@SOUNDFONT@|/work/MuseScore_General.sf3|g" -e "s|@SAMPLES@|/work/squashfs-root/usr/share/lmms/samples|g" \
+            tests/instruments.mmp > "$RUNNER_TEMP/instruments-native.mmp"
+          docker run --rm -v "$RUNNER_TEMP:/work" lmms-native sh /work/native-render.sh /work/instruments-native.mmp instruments-native.wav
+
+      - name: "Instruments: compared, one row each"
+        run: |
+          set -o pipefail
+          node tests/compare.mjs "$RUNNER_TEMP/instruments-native.wav" "$RUNNER_TEMP/instruments-web.wav" --segments tests/instruments.json \
+            | tee "$RUNNER_TEMP/compare-instruments.txt"
+          {
+            echo
+            echo "### Every instrument Musical uses: web against native LMMS"
+            echo
+            echo "\`$(grep '^{' "$RUNNER_TEMP/compare-instruments.txt" | cut -c1-200)\`"
+            echo
+            grep '^|' "$RUNNER_TEMP/compare-instruments.txt"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the module
@@ -265,4 +338,6 @@ jobs:
             ${{ runner.temp }}/tripleoscillator.wav
             ${{ runner.temp }}/musical-web.wav
             ${{ runner.temp }}/musical-native.wav
+            ${{ runner.temp }}/instruments-web.wav
+            ${{ runner.temp }}/instruments-native.wav
           if-no-files-found: ignore

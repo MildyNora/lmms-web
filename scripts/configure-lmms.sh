@@ -15,7 +15,9 @@ BUILD=$(realpath -m "${2:?usage: configure-lmms.sh <lmms source> <build director
 shift 2
 : "${QT_WASM:?}" "${QT_HOST:?}" "${DEPS:?}"
 
-PLUGINS=${PLUGINS:-"TripleOscillator AudioFileProcessor Kicker Amplifier Compressor Delay Eq Flanger StereoMatrix WaveShaper LadspaEffect"}
+# Every instrument Musical's projects use (LMMS's presets, ZynAddSubFX's banks, the General MIDI soundfont on Sf2Player,
+# samples and DrumSynth sounds on AudioFileProcessor) and every effect
+PLUGINS=${PLUGINS:-"TripleOscillator AudioFileProcessor Kicker BitInvader FreeBoy Lb302 Monstro Nes OpulenZ Organic Sf2Player Sid Vibed Watsyn Xpressive ZynAddSubFx Amplifier Compressor Delay Eq Flanger StereoMatrix WaveShaper LadspaEffect"}
 # The LADSPA libraries Musical's projects use (its effects: CMT's filters, delays and reverb, CAPS's chorus, Calf's phaser and
 # filter, TAP's stereo echo, SWH's amplifier, decimator and limiter); the others come later as plugins loaded on their own
 LADSPA=${LADSPA:-"cmt caps veal tap_echo amp_1181 decimator_1202 fast_lookahead_limiter_1913"}
@@ -26,7 +28,7 @@ export PKG_CONFIG_PATH="$DEPS/lib/pkgconfig"
 
 # Every optional backend and plugin family off; the web build adds them back one by one
 OFF=(ALSA OSS JACK WEAKJACK PULSEAUDIO PORTAUDIO SNDIO SOUNDIO SDL CARLA LV2 SUIL VST VST_32 VST_64
-	GIG STK MP3LAME OGGVORBIS SF2 SID)
+	GIG STK MP3LAME OGGVORBIS)
 WANTS=()
 for want in "${OFF[@]}"; do WANTS+=("-DWANT_$want=OFF"); done
 

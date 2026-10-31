@@ -1,0 +1,297 @@
+lmms-web: ZynAddSubFX in the web build runs only in LMMS's own process (LocalZynAddSubFx), as
+it does elsewhere while its window is closed: no FLTK window (zynaddsubfx_gui, fluid) and no
+separate process (RemoteZynAddSubFx, the remote plugin), which a web page can't start.
+
+Applies to LMMS v1.3.0-alpha.2 (GPL-2.0-or-later).
+
+diff --git a/plugins/ZynAddSubFx/CMakeLists.txt b/plugins/ZynAddSubFx/CMakeLists.txt
+index 6e92938..35a3d7c 100644
+--- a/plugins/ZynAddSubFx/CMakeLists.txt
++++ b/plugins/ZynAddSubFx/CMakeLists.txt
+@@ -1,4 +1,6 @@
+-if(NOT FLTK_FOUND)
++# The web build has no window for it (FLTK) and no separate process (RemoteZynAddSubFx):
++# only the synthesizer and the plugin running it in LMMS's own process (LocalZynAddSubFx)
++if(NOT FLTK_FOUND AND NOT LMMS_BUILD_WEB)
+ 	return()
+ endif()
+ 
+@@ -33,6 +35,7 @@ else()
+ 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -fpermissive")
+ endif()
+ 
++if(NOT LMMS_BUILD_WEB)
+ IF(MINGW_PREFIX)
+ 	SET(FLTK_FLUID_EXECUTABLE "${MINGW_PREFIX}/bin/fluid")
+ ENDIF()
+@@ -44,6 +47,7 @@ IF(NOT EXISTS ${FLTK_FLUID_EXECUTABLE})
+         MESSAGE(FATAL_ERROR "Please install the fluid binary which is part of FLTK.")
+     ENDIF()
+ ENDIF()
++endif()
+ 
+ include_directories(SYSTEM
+ 	"${FLTK_INCLUDE_DIR}"
+@@ -57,7 +61,9 @@ include_directories(
+ 
+ ADD_DEFINITIONS(-DPLUGINVERSION)	# removes exit confirmation dialogs etc. in MasterUI.fl
+ add_subdirectory(zynaddsubfx/src/Nio)
+-add_subdirectory(zynaddsubfx/src/UI)
++if(NOT LMMS_BUILD_WEB)
++	add_subdirectory(zynaddsubfx/src/UI)
++endif()
+ 
+ add_library(zynaddsubfx_synth OBJECT
+     zynaddsubfx/src/DSP/AnalogFilter.cpp
+@@ -109,13 +115,17 @@ add_library(zynaddsubfx_synth OBJECT
+ )
+ 
+ set_target_properties(zynaddsubfx_nio PROPERTIES SYSTEM TRUE)
+-set_target_properties(zynaddsubfx_gui PROPERTIES SYSTEM TRUE)
++if(NOT LMMS_BUILD_WEB)
++	set_target_properties(zynaddsubfx_gui PROPERTIES SYSTEM TRUE)
++endif()
+ set_target_properties(zynaddsubfx_synth PROPERTIES SYSTEM TRUE)
+ 
+ # Relative include paths don't work automatically for the GUI, because the
+ # generated C++ files aren't in the source directory. Thus, add the expected
+ # source directory as an additional include directory.
+-target_include_directories(zynaddsubfx_gui PUBLIC zynaddsubfx/src/UI)
++if(NOT LMMS_BUILD_WEB)
++	target_include_directories(zynaddsubfx_gui PUBLIC zynaddsubfx/src/UI)
++endif()
+ 
+ add_library(ZynAddSubFxCore STATIC
+ 	LocalZynAddSubFx.cpp
+@@ -163,6 +173,10 @@ endif()
+ # Use libraries in non-standard directories (e.g., another version of Qt)
+ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+ 
++if(LMMS_BUILD_WEB)
++	return()
++endif()
++
+ ADD_SUBDIRECTORY("${LMMS_SOURCE_DIR}/src/common" common)
+ 
+ add_executable(RemoteZynAddSubFx
+diff --git a/plugins/ZynAddSubFx/ZynAddSubFx.cpp b/plugins/ZynAddSubFx/ZynAddSubFx.cpp
+index 5f33833..c2968ac 100644
+--- a/plugins/ZynAddSubFx/ZynAddSubFx.cpp
++++ b/plugins/ZynAddSubFx/ZynAddSubFx.cpp
+@@ -43,7 +43,9 @@
+ #include "InstrumentTrack.h"
+ #include "Song.h"
+ #include "StringPairDrag.h"
++#ifndef LMMS_BUILD_WEB
+ #include "RemoteZynAddSubFx.h"
++#endif
+ #include "LocalZynAddSubFx.h"
+ #include "AudioEngine.h"
+ #include "Clipboard.h"
+@@ -77,6 +79,7 @@ Plugin::Descriptor PLUGIN_EXPORT zynaddsubfx_plugin_descriptor =
+ 
+ 
+ 
++#ifndef LMMS_BUILD_WEB
+ ZynAddSubFxRemotePlugin::ZynAddSubFxRemotePlugin() :
+ 	RemotePlugin()
+ {
+@@ -98,6 +101,7 @@ bool ZynAddSubFxRemotePlugin::processMessage( const message & _m )
+ 
+ 	return RemotePlugin::processMessage( _m );
+ }
++#endif
+ 
+ 
+ 
+@@ -157,7 +161,9 @@ ZynAddSubFxInstrument::~ZynAddSubFxInstrument()
+ 
+ 	m_pluginMutex.lock();
+ 	delete m_plugin;
++#ifndef LMMS_BUILD_WEB
+ 	delete m_remotePlugin;
++#endif
+ 	m_plugin = nullptr;
+ 	m_remotePlugin = nullptr;
+ 	m_pluginMutex.unlock();
+@@ -196,6 +202,7 @@ void ZynAddSubFxInstrument::saveSettings( QDomDocument & _doc,
+ 		const std::string fn = QSTR_TO_STDSTR(
+ 									QDir::toNativeSeparators( tf.fileName() ) );
+ 		m_pluginMutex.lock();
++#ifndef LMMS_BUILD_WEB
+ 		if( m_remotePlugin )
+ 		{
+ 			m_remotePlugin->lock();
+@@ -204,6 +211,7 @@ void ZynAddSubFxInstrument::saveSettings( QDomDocument & _doc,
+ 			m_remotePlugin->unlock();
+ 		}
+ 		else
++#endif
+ 		{
+ 			m_plugin->saveXML( fn );
+ 		}
+@@ -254,6 +262,7 @@ void ZynAddSubFxInstrument::loadSettings( const QDomElement & _this )
+ 
+ 		const std::string fn = QSTR_TO_STDSTR( QDir::toNativeSeparators( tf.fileName() ) );
+ 		m_pluginMutex.lock();
++#ifndef LMMS_BUILD_WEB
+ 		if( m_remotePlugin )
+ 		{
+ 			m_remotePlugin->lock();
+@@ -262,6 +271,7 @@ void ZynAddSubFxInstrument::loadSettings( const QDomElement & _this )
+ 			m_remotePlugin->unlock();
+ 		}
+ 		else
++#endif
+ 		{
+ 			m_plugin->loadXML( fn );
+ 		}
+@@ -298,6 +308,7 @@ void ZynAddSubFxInstrument::loadSettings( const QDomElement & _this )
+ void ZynAddSubFxInstrument::loadFile( const QString & _file )
+ {
+ 	const std::string fn = QSTR_TO_STDSTR( _file );
++#ifndef LMMS_BUILD_WEB
+ 	if( m_remotePlugin )
+ 	{
+ 		m_remotePlugin->lock();
+@@ -306,6 +317,7 @@ void ZynAddSubFxInstrument::loadFile( const QString & _file )
+ 		m_remotePlugin->unlock();
+ 	}
+ 	else
++#endif
+ 	{
+ 		m_pluginMutex.lock();
+ 		m_plugin->loadPreset( fn );
+@@ -333,11 +345,13 @@ QString ZynAddSubFxInstrument::nodeName() const
+ void ZynAddSubFxInstrument::play( SampleFrame* _buf )
+ {
+ 	if (!m_pluginMutex.tryLock(Engine::getSong()->isExporting() ? -1 : 0)) {return;}
++#ifndef LMMS_BUILD_WEB
+ 	if( m_remotePlugin )
+ 	{
+ 		m_remotePlugin->process( nullptr, _buf );
+ 	}
+ 	else
++#endif
+ 	{
+ 		m_plugin->processAudio( _buf );
+ 	}
+@@ -361,11 +375,13 @@ bool ZynAddSubFxInstrument::handleMidiEvent( const MidiEvent& event, const TimeP
+ 	MidiEvent localEvent = event;
+ 	localEvent.setChannel( 0 );
+ 	m_pluginMutex.lock();
++#ifndef LMMS_BUILD_WEB
+ 	if( m_remotePlugin )
+ 	{
+ 		m_remotePlugin->processMidiEvent( localEvent, 0 );
+ 	}
+ 	else
++#endif
+ 	{
+ 		m_plugin->processMidiEvent( localEvent );
+ 	}
+@@ -395,12 +411,14 @@ void ZynAddSubFxInstrument::reloadPlugin()
+ void ZynAddSubFxInstrument::updatePitchRange()
+ {
+ 	m_pluginMutex.lock();
++#ifndef LMMS_BUILD_WEB
+ 	if( m_remotePlugin )
+ 	{
+ 		m_remotePlugin->sendMessage( RemotePlugin::message( IdZasfSetPitchWheelBendRange ).
+ 											addInt( instrumentTrack()->midiPitchRange() ) );
+ 	}
+ 	else
++#endif
+ 	{
+ 		m_plugin->setPitchWheelBendRange( instrumentTrack()->midiPitchRange() );
+ 	}
+@@ -431,10 +449,13 @@ void ZynAddSubFxInstrument::initPlugin()
+ {
+ 	m_pluginMutex.lock();
+ 	delete m_plugin;
++#ifndef LMMS_BUILD_WEB
+ 	delete m_remotePlugin;
++#endif
+ 	m_plugin = nullptr;
+ 	m_remotePlugin = nullptr;
+ 
++#ifndef LMMS_BUILD_WEB
+ 	if( m_hasGUI )
+ 	{
+ 		m_remotePlugin = new ZynAddSubFxRemotePlugin();
+@@ -463,6 +484,7 @@ void ZynAddSubFxInstrument::initPlugin()
+ 		m_remotePlugin->unlock();
+ 	}
+ 	else
++#endif
+ 	{
+ 		m_plugin = new LocalZynAddSubFx;
+ 		m_plugin->setSampleRate( Engine::audioEngine()->outputSampleRate() );
+@@ -542,6 +564,9 @@ ZynAddSubFxView::ZynAddSubFxView( Instrument * _instrument, QWidget * _parent )
+ 							SLOT( toggleUI() ) );
+ 
+ 	l->addWidget( m_toggleUIButton, 0, 0, 1, 4 );
++#ifdef LMMS_BUILD_WEB
++	m_toggleUIButton->hide();
++#endif
+ 	l->setRowStretch( 1, 5 );
+ 	l->addWidget( m_portamento, 2, 0 );
+ 	l->addWidget( m_filterFreq, 2, 1 );
+@@ -627,17 +652,23 @@ void ZynAddSubFxView::modelChanged()
+ 
+ void ZynAddSubFxView::toggleUI()
+ {
++#ifdef LMMS_BUILD_WEB
++	// No window of its own on the web (it would be another process)
++	return;
++#endif
+ 	auto model = castModel<ZynAddSubFxInstrument>();
+ 	if( model->m_hasGUI != m_toggleUIButton->isChecked() )
+ 	{
+ 		model->m_hasGUI = m_toggleUIButton->isChecked();
+ 		model->reloadPlugin();
+ 
++#ifndef LMMS_BUILD_WEB
+ 		if( model->m_remotePlugin )
+ 		{
+ 			connect( model->m_remotePlugin, SIGNAL( clickedCloseButton() ),
+ 						m_toggleUIButton, SLOT( toggle() ) );
+ 		}
++#endif
+ 	}
+ }
+ 
+diff --git a/plugins/ZynAddSubFx/ZynAddSubFx.h b/plugins/ZynAddSubFx/ZynAddSubFx.h
+index a35bc8f..47097dd 100644
+--- a/plugins/ZynAddSubFx/ZynAddSubFx.h
++++ b/plugins/ZynAddSubFx/ZynAddSubFx.h
+@@ -33,7 +33,9 @@
+ #include "AutomatableModel.h"
+ #include "Instrument.h"
+ #include "InstrumentView.h"
++#ifndef LMMS_BUILD_WEB
+ #include "RemotePlugin.h"
++#endif
+ 
+ class QPushButton;
+ 
+@@ -51,6 +53,7 @@ class LedCheckBox;
+ class ZynAddSubFxView;
+ }
+ 
++#ifndef LMMS_BUILD_WEB
+ class ZynAddSubFxRemotePlugin : public RemotePlugin
+ {
+ 	Q_OBJECT
+@@ -64,6 +67,11 @@ signals:
+ 	void clickedCloseButton();
+ 
+ } ;
++#else
++// The web build has no remote plugins (a page can't start another process): ZynAddSubFX
++// always runs in this process, without its own window, so m_remotePlugin stays null
++class ZynAddSubFxRemotePlugin;
++#endif
+ 
+ 
+ 
