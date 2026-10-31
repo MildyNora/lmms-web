@@ -7,6 +7,7 @@ name: build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -25,6 +26,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # a version tag's run publishes its release
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
@@ -329,6 +332,19 @@ jobs:
           path: |
             ${{ runner.temp }}/build/web/lmms.js
             ${{ runner.temp }}/build/web/lmms.wasm
+
+      # A version tag (v0.1.0) publishes the module as a release: lmms.js, lmms.wasm and their checksums, as this run built and
+      # tested them. A page that loads the module pins a version and checks the files against SHA256SUMS.
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP/build/web"
+          sha256sum lmms.js lmms.wasm > SHA256SUMS
+          cat SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" lmms.js lmms.wasm SHA256SUMS --repo "$GITHUB_REPOSITORY" --title "lmms-web $GITHUB_REF_NAME" \
+            --notes "LMMS $LMMS_TAG built for WebAssembly by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID, where its renders were checked against LMMS's own release. Source: this repository at $GITHUB_REF_NAME, with LMMS's at $LMMS_TAG (GPL-2.0-or-later, like LMMS)."
 
       - name: Upload the test render
         if: always()
