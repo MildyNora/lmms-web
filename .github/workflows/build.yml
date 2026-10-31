@@ -207,7 +207,8 @@ jobs:
             tests/assets/clip1.flac tests/assets/clip2.flac | tee "$RUNNER_TEMP/render-musical.txt"
           echo "Musical's test project (web): \`$(grep '^{' "$RUNNER_TEMP/render-musical.txt")\`" >> "$GITHUB_STEP_SUMMARY"
 
-      # The same project through LMMS's own release build: the web build is right when the two null
+      # The same project through LMMS's own release, run as Musical's server runs it today (Debian bookworm, the AppImage's
+      # lmms binary with its own libraries, FluidSynth and libsndfile from the system): the web build is right when the two null
       - name: Native LMMS renders the same project
         timeout-minutes: 15
         run: |
@@ -218,8 +219,15 @@ jobs:
           chmod +x lmms.AppImage
           ./lmms.AppImage --appimage-extract > /dev/null
           mkdir -p lmms-home
-          sed "s|@HOME@|$RUNNER_TEMP/lmms-home|" "$GITHUB_WORKSPACE/tests/native-lmmsrc.xml" > lmmsrc.xml
-          QT_QPA_PLATFORM=offscreen timeout 240 squashfs-root/AppRun -c lmmsrc.xml render "$RUNNER_TEMP/musical.mmp" -o musical-native.wav -f wav -a -s 44100 2>&1 | tail -20
+          sed "s|@HOME@|/work/lmms-home|" "$GITHUB_WORKSPACE/tests/native-lmmsrc.xml" > lmmsrc.xml
+          docker run --rm -v "$RUNNER_TEMP:/work" -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE:ro" debian:bookworm-slim sh -euc '
+            apt-get update -qq
+            apt-get install -y -qq --no-install-recommends libfluidsynth3 libsamplerate0 libsndfile1 libgl1 libglib2.0-0 \
+              libfontconfig1 libfreetype6 libx11-6 libx11-xcb1 libxcb1 libxext6 libxrender1 libxkbcommon0 libasound2 libdbus-1-3 > /dev/null
+            cd /work
+            LD_LIBRARY_PATH=/work/squashfs-root/usr/lib QT_QPA_PLATFORM=offscreen timeout 240 \
+              squashfs-root/usr/bin/lmms -c lmmsrc.xml render /work/musical.mmp -o musical-native.wav -f wav -a -s 44100 2>&1 | tail -20
+          '
           ls -l musical-native.wav
 
       - name: The two renders, compared
