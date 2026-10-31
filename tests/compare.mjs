@@ -45,19 +45,25 @@ if (rms(b.l) + rms(b.r) < 1e-4) fail("the web render is silent");
 const seconds = (x) => x.frames / x.rate;
 if (Math.abs(seconds(a) - seconds(b)) > 0.25) fail(`lengths differ: ${seconds(a).toFixed(3)} s and ${seconds(b).toFixed(3)} s`);
 
-// the lag: the shift of b within ±64 samples that best matches a over the loudest second
+// the lag: the shift of b within ±64 samples that best matches a over the loudest second of a stretch (the whole song, or each
+// segment on its own, so one part that went wrong can't misalign the others)
 const n = Math.min(a.frames, b.frames);
-let loud = 0, loudAt = 0;
-for (let s = 0; s + a.rate <= n; s += a.rate) { const v = rms(a.l, s, s + a.rate); if (v > loud) { loud = v; loudAt = s; } }
-let lag = 0, best = Infinity;
-for (let k = -64; k <= 64; k++) {
-	let e = 0;
-	for (let i = loudAt + 64; i < Math.min(n - 64, loudAt + a.rate); i++) { const d = a.l[i] - b.l[i + k]; e += d * d; }
-	if (e < best) { best = e; lag = k; }
+function lagOver(from, to) {
+	let loud = 0, loudAt = from;
+	for (let s = from; s + a.rate <= to; s += a.rate) { const v = rms(a.l, s, s + a.rate); if (v > loud) { loud = v; loudAt = s; } }
+	let lag = 0, best = Infinity;
+	for (let k = -64; k <= 64; k++) {
+		let e = 0;
+		for (let i = loudAt + 64; i < Math.min(n - 64, loudAt + a.rate, to); i++) { const d = a.l[i] - b.l[i + k]; e += d * d; }
+		if (e < best) { best = e; lag = k; }
+	}
+	return lag;
 }
+let lag = lagOver(0, n);
 const db = (x) => (x > 0 ? 20 * Math.log10(x) : -Infinity);
 const QUIET = 1e-5;   // a stretch of the native render under -100 dB RMS: too quiet to say how alike they are (any difference is huge beside it)
-function nullDb(from, to) {
+function nullDb(from, to, at = lag) {
+	const lag = at;
 	let d = 0, ref = 0;
 	for (let i = Math.max(from, 64); i < Math.min(to, n - 64); i++) {
 		for (const [x, y] of [[a.l, b.l], [a.r, b.r]]) { const e = x[i] - y[i + lag]; d += e * e; ref += x[i] * x[i]; }
@@ -69,15 +75,15 @@ function nullDb(from, to) {
 const overall = nullDb(0, n);
 const perSecond = [];
 for (let s = 0; s < n; s += a.rate) perSecond.push(nullDb(s, Math.min(n, s + a.rate)));
-const perSegment = segments && segments.map((s) => ({ name: s.name, null_db: nullDb(Math.round(s.from_s * a.rate), Math.round(s.to_s * a.rate)),
+const perSegment = segments && segments.map((s) => { const from = Math.round(s.from_s * a.rate), to = Math.min(n, Math.round(s.to_s * a.rate)), own = lagOver(from, to); return { name: s.name, lag_samples: own, null_db: nullDb(from, to, own),
 	native_rms_db: Number(db(rms(a.l, Math.round(s.from_s * a.rate), Math.min(n, Math.round(s.to_s * a.rate)))).toFixed(1)),
-	web_rms_db: Number(db(rms(b.l, Math.round(s.from_s * a.rate), Math.min(n, Math.round(s.to_s * a.rate)))).toFixed(1)) }));
+	web_rms_db: Number(db(rms(b.l, Math.round(s.from_s * a.rate), Math.min(n, Math.round(s.to_s * a.rate)))).toFixed(1)) }; });
 const summary = { native_seconds: Number(seconds(a).toFixed(3)), web_seconds: Number(seconds(b).toFixed(3)), lag_samples: lag, null_db: overall,
 	...(perSegment ? { per_segment: perSegment } : { per_second_db: perSecond }) };
 console.log(JSON.stringify(summary));
 if (perSegment) {
-	console.log("| part | null (dB) | native level (dB) | web level (dB) |\n| --- | --- | --- | --- |");
-	for (const s of perSegment) console.log(`| ${s.name} | ${s.null_db ?? "quiet"} | ${s.native_rms_db} | ${s.web_rms_db} |`);
+	console.log("| part | null (dB) | native level (dB) | web level (dB) | lag |\n| --- | --- | --- | --- | --- |");
+	for (const s of perSegment) console.log(`| ${s.name} | ${s.null_db ?? "quiet"} | ${s.native_rms_db} | ${s.web_rms_db} | ${s.lag_samples} |`);
 } else {
 	console.log(`| second | ${perSecond.map((_, i) => i + 1).join(" | ")} |\n| --- | ${perSecond.map(() => "---").join(" | ")} |\n| null (dB) | ${perSecond.map((v) => (v == null ? "quiet" : v)).join(" | ")} |`);
 }
