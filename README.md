@@ -34,7 +34,9 @@ if (rc === 0) {
 ```
 
 `lmms_render` returns 0 when the WAV was written, 1 for bad arguments, 2 when the project can't be loaded or is empty, 3 when
-no audio came out. The engine starts on the first render and stays up, so later renders skip its setup, and each render starts
+no audio came out, and 4 when the project names an instrument or effect this build doesn't have, or LMMS couldn't load all of it
+(a sample or soundfont that isn't there, a LADSPA plugin it doesn't know): LMMS would render it with a silence in that place,
+so it says what on stderr ("Not in this build: …", "Not loaded whole: …") instead. The engine starts on the first render and stays up, so later renders skip its setup, and each render starts
 LMMS's random numbers where a fresh process's stand: a render doesn't depend on what the module rendered before.
 `lmms_version()` gives the LMMS version it was built from. `callMain(["render", "song.mmp", "-o", "song.wav", "-a"])` takes
 LMMS's own command line too.

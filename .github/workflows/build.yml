@@ -318,6 +318,13 @@ jobs:
 
       # A page keeps the module and renders song after song in it: Musical's test project before and after every instrument must be
       # the same sample for sample (what instruments with random numbers of their own do from render to render is reported)
+      - name: A song with what this build lacks is refused, and says what
+        timeout-minutes: 10
+        run: |
+          set -o pipefail
+          timeout 300 node tests/missing.mjs "$RUNNER_TEMP/build/web/lmms.js" tests/tripleoscillator.mmp | tee "$RUNNER_TEMP/missing.txt"
+          { echo "### A song with what this build lacks"; echo; sed 's/^/    /' "$RUNNER_TEMP/missing.txt"; echo; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Several renders in one module (a page keeps it loaded)
         timeout-minutes: 20
         run: |

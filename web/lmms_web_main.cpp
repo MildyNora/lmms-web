@@ -18,9 +18,11 @@
  */
 
 #include <QCoreApplication>
+#include <QDomDocument>
 #include <QFile>
 #include <QFileInfo>
 #include <QString>
+#include <QStringList>
 
 #include <cstdint>
 #include <cstdio>
@@ -34,6 +36,7 @@
 #include "Hardware.h"
 #include "NotePlayHandle.h"
 #include "OutputSettings.h"
+#include "PluginFactory.h"
 #include "ProjectRenderer.h"
 #include "RenderManager.h"
 #include "Song.h"
@@ -125,6 +128,26 @@ LMMS_WEB_EXPORT int lmms_init()
 //! sampleRate: 44100 to 192000, or 0 for 44100. floatOutput: 32-bit float samples when
 //! nonzero, else 16-bit. Returns 0 when the file was written; 1 for bad arguments, 2 when
 //! the project can't be loaded or is empty, 3 when no file came out.
+//! The instruments and effects a project names that this build doesn't have: LMMS would put a silent stand-in in each one's place
+//! (DummyInstrument, DummyEffect) without a word when there's no window to say it in.
+static QStringList pluginsNotHere(const QString& projectPath)
+{
+	QStringList missing;
+	QFile file(projectPath);
+	QDomDocument doc;
+	if (!file.open(QIODevice::ReadOnly) || !doc.setContent(&file)) { return missing; }   // (LMMS itself says what's wrong with it)
+	for (const char* tag : {"instrument", "effect"})
+	{
+		const QDomNodeList nodes = doc.elementsByTagName(tag);
+		for (int i = 0; i < nodes.count(); ++i)
+		{
+			const QString name = nodes.at(i).toElement().attribute("name");
+			if (!name.isEmpty() && getPluginFactory()->pluginInfo(name.toUtf8().constData()).isNull() && !missing.contains(name)) { missing << name; }
+		}
+	}
+	return missing;
+}
+
 LMMS_WEB_EXPORT int lmms_render(const char* projectPath, const char* outputPath, int sampleRate, int floatOutput)
 {
 	if (!projectPath || !outputPath || !*projectPath || !*outputPath) { return 1; }
@@ -155,6 +178,15 @@ LMMS_WEB_EXPORT int lmms_render(const char* projectPath, const char* outputPath,
 	DrumSynth::resetState();
 	if (&prng_state) { prng_state = 0x1234; }
 
+	// A song that names what this build doesn't have, or that LMMS couldn't load whole (a sample or a soundfont not there, a LADSPA
+	// plugin it doesn't know), would render with a silence where that is: no render (4), and what it was, so the caller can have
+	// the song mixed where all of it is (LMMS's own command line renders it with the gap)
+	const QStringList absent = pluginsNotHere(project);
+	if (!absent.isEmpty())
+	{
+		std::fprintf(stderr, "Not in this build: %s\n", absent.join(", ").toUtf8().constData());
+		return 4;
+	}
 	std::printf("Loading project...\n");
 	Song* song = Engine::getSong();
 	song->loadProject(project);
@@ -162,6 +194,11 @@ LMMS_WEB_EXPORT int lmms_render(const char* projectPath, const char* outputPath,
 	{
 		std::fprintf(stderr, "The project %s is empty, aborting!\n", projectPath);
 		return 2;
+	}
+	if (song->hasErrors())
+	{
+		std::fprintf(stderr, "Not loaded whole: %s\n", song->errorSummary().trimmed().replace('\n', "; ").toUtf8().constData());
+		return 4;
 	}
 	std::printf("Done\n");
 	song->setExportLoop(false);
